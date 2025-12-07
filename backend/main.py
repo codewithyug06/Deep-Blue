@@ -11,6 +11,7 @@ import traceback
 import re
 
 # --- INTERNAL IMPORTS ---
+# Ensure these files exist in your 'app' folder
 from app.engine.rag_agent import ai_tutor
 from app.engine.ast_parser import parse_code_to_3d
 
@@ -91,6 +92,15 @@ def register_user(auth: UserAuth, db: Session = Depends(get_db)):
     db.refresh(new_user)
     
     return {"message": "Registration successful", "user_id": new_user.id, "is_premium": is_premium_status}
+
+# --- ADDED: Verify Endpoint to fix 404 Errors ---
+@app.post("/verify")
+def verify_session():
+    """
+    Simple endpoint to confirm backend connectivity and session status.
+    Accepts any request body (or none) and returns success.
+    """
+    return {"status": "valid", "message": "Session active"}
 
 @app.post("/upgrade-premium")
 def upgrade_premium(user_id: int, db: Session = Depends(get_db)):
