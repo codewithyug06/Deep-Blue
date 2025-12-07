@@ -4,13 +4,13 @@
       "id": 120,
       "title": "CR Decomp: Reconstruction",
       "difficulty": "Medium",
-      "description": "Given Column matrix C and Row matrix R, reconstruct the original matrix A by calculating the dot product for a specific cell (row i of C * col j of R).",
+      "description": "We need to verify our matrix compression. You have a Column matrix 'C' and a Row matrix 'R'. Your mission is to reconstruct a specific single cell of the original matrix A at row 'i' and column 'j'. This is done by calculating the dot product of row 'i' from C and column 'j' from R.",
       "roles": {
         "architect": "Logic: Multiply row i of C by column j of R (scalar logic for 1x1).",
         "translator": "Syntax: return C[i] * R[j]",
         "debugger": "Check: Indices."
       },
-      "starter_code": "def reconstruct_cell(C, R, i, j):\n    # Rebuild A[i][j]\n    return 0",
+      "starter_code": "def reconstruct_cell(C, R, i, j):\n    # Rebuild A[i][j]\n    return -1",
       "solution_keywords": [
         "*",
         "["
@@ -30,13 +30,13 @@
       "id": 121,
       "title": "SVD: Diagonal Strength",
       "difficulty": "Hard",
-      "description": "In SVD (Sigma matrix), we often filter noise. Write a function filter_singular(val, threshold) that returns val if val > threshold, else 0.",
+      "description": "Signal noise is corrupting our data. We need a filter for our Singular Value Decomposition (SVD) process. Write a function filter_singular(val, threshold) that checks a singular value. If 'val' is strictly greater than the 'threshold', keep it; otherwise, return 0 to suppress the noise.",
       "roles": {
         "architect": "Logic: Thresholding function.",
         "translator": "Syntax: return val if val > threshold else 0",
         "debugger": "Check: Conditional logic."
       },
-      "starter_code": "def filter_singular(val, threshold):\n    # Denoise\n    return 0",
+      "starter_code": "def filter_singular(val, threshold):\n    # Denoise\n    return -1",
       "solution_keywords": [
         "if",
         "else",
@@ -57,7 +57,7 @@
       "id": 103,
       "title": "Racing: Nitro Boost",
       "difficulty": "Easy",
-      "description": "Nitro activated! Write a function activate_nitro(speed) that returns double the input speed (Scalar Multiplication).",
+      "description": "Engage the nitrous oxide system! We need a burst of speed to overtake the target. Write a function activate_nitro(speed) that takes the current speed and returns exactly double that amount using scalar multiplication.",
       "roles": {
         "architect": "Logic: Multiply input by 2.",
         "translator": "Syntax: return speed * 2",
@@ -87,13 +87,13 @@
       "id": 110,
       "title": "Physics: Gravity Fall",
       "difficulty": "Easy",
-      "description": "Write a function apply_gravity(y_pos, fall_speed) that returns y_pos minus fall_speed (Vector subtraction component).",
+      "description": "The object is in freefall. We need to calculate its next vertical position. Write a function apply_gravity(y_pos, fall_speed) that takes the current vertical position 'y_pos' and subtracts the 'fall_speed' to determine where it will be next frame.",
       "roles": {
         "architect": "Logic: Subtract fall speed from Y position.",
         "translator": "Syntax: return y_pos - fall_speed",
         "debugger": "Check: Subtraction order."
       },
-      "starter_code": "def apply_gravity(y_pos, fall_speed):\n    # Move down\n    return 0",
+      "starter_code": "def apply_gravity(y_pos, fall_speed):\n    # Move down\n    return -1",
       "solution_keywords": [
         "-"
       ],
@@ -118,13 +118,13 @@
       "id": 401,
       "title": "Nav: Dot Product",
       "difficulty": "Medium",
-      "description": "Calculate the dot product of two 2D vectors [x1, y1] and [x2, y2]. Formula: (x1 * x2) + (y1 * y2).",
+      "description": "Navigation systems require a dot product calculation to determine vector alignment. You are given two 2D vectors, v1 and v2, each containing an x and y component (e.g., [x, y]). Calculate their dot product using the formula: (v1_x * v2_x) + (v1_y * v2_y).",
       "roles": {
         "architect": "Logic: Multiply matching components and sum them.",
         "translator": "Syntax: return (v1[0] * v2[0]) + (v1[1] * v2[1])",
         "debugger": "Check: Indices 0 and 1."
       },
-      "starter_code": "def calc_dot_product(v1, v2):\n    # Return dot product\n    return 0",
+      "starter_code": "def calc_dot_product(v1, v2):\n    # Return dot product\n    return -1",
       "solution_keywords": [
         "*",
         "+",
@@ -152,13 +152,13 @@
       "id": 320,
       "title": "PCA: Center Data",
       "difficulty": "Medium",
-      "description": "The first step of PCA is centering data. Write a function center_point(x, mean) that returns x minus mean.",
+      "description": "The first step of PCA is centering data. Write a function center_point(x, mean) that centers a data point 'x' by subtracting the global 'mean' from it. This shifts the data distribution so its center is at zero.",
       "roles": {
         "architect": "Logic: Subtract the mean from the data point.",
         "translator": "Syntax: return x - mean",
         "debugger": "Check: Subtraction."
       },
-      "starter_code": "def center_point(x, mean):\n    # Zero-center\n    return 0",
+      "starter_code": "def center_point(x, mean):\n    # Zero-center\n    return -1",
       "solution_keywords": [
         "-"
       ],
@@ -177,13 +177,13 @@
       "id": 302,
       "title": "Data: High Score",
       "difficulty": "Hard",
-      "description": "Write a function find_winner(scores) that returns the highest score in the list (Max Aggregation).",
+      "description": "We need to identify the top performer from a dataset. Write a function find_winner(scores) that accepts a list of numerical 'scores' and identifies the highest value among them.",
       "roles": {
         "architect": "Logic: Find maximum value.",
         "translator": "Syntax: return max(scores) or loop logic.",
         "debugger": "Check: max() function or iteration."
       },
-      "starter_code": "def find_winner(scores):\n    # Return highest\n    return 0",
+      "starter_code": "def find_winner(scores):\n    # Return highest\n    return -1",
       "solution_keywords": [
         "max",
         "for"
@@ -215,7 +215,7 @@
       "id": 306,
       "title": "Inventory: Filter Junk",
       "difficulty": "Hard",
-      "description": "Write a function sort_valuables(inventory) that returns a new list containing only items greater than 10 (Filtering). Inventory is a list of integers.",
+      "description": "Our inventory database is cluttered with low-value items. Write a function sort_valuables(inventory) that takes a list of item values and returns a new list containing *only* the items with a value strictly greater than 10.",
       "roles": {
         "architect": "Logic: Filter list based on condition.",
         "translator": "Syntax: [i for i in inventory if i > 10]",
@@ -258,7 +258,7 @@
       "id": 104,
       "title": "Social: Username Formatter",
       "difficulty": "Easy",
-      "description": "Write a function save_user(username) that returns the username converted to lowercase (Data Cleaning).",
+      "description": "Usernames in our database are inconsistent. We need a standardization protocol. Write a function save_user(username) that takes a raw 'username' string and returns it converted entirely to lowercase letters for storage.",
       "roles": {
         "architect": "Logic: Convert text to lowercase.",
         "translator": "Syntax: return username.lower()",
@@ -301,13 +301,13 @@
       "id": 501,
       "title": "Stats: Average Value",
       "difficulty": "Medium",
-      "description": "Calculate the mean (average) of a list of numbers. Sum divided by count.",
+      "description": "We need to analyze the central tendency of our data. Write a function calc_average(numbers) that calculates the arithmetic mean of a list of numbers. Remember, the mean is the sum of all elements divided by the total count of elements.",
       "roles": {
         "architect": "Logic: Total sum divided by number of items.",
         "translator": "Syntax: return sum(numbers) / len(numbers)",
         "debugger": "Check: Handle empty list if needed (assume valid input here)."
       },
-      "starter_code": "def calc_average(numbers):\n    # Calculate mean\n    return 0",
+      "starter_code": "def calc_average(numbers):\n    # Calculate mean\n    return -1",
       "solution_keywords": [
         "sum",
         "/",
@@ -330,13 +330,13 @@
       "id": 650,
       "title": "VAE: Reparameterize",
       "difficulty": "Hard",
-      "description": "Implement the VAE 'Reparameterization Trick'. Returns mu + (epsilon * std).",
+      "description": "In Variational Autoencoders, we need to sample from a latent space to generate new data. Implement the 'reparameterization trick' in the function reparameterize(mu, std, epsilon). It should calculate 'mu + (epsilon * std)', scaling the random noise 'epsilon' by the standard deviation 'std' and shifting it by the mean 'mu'.",
       "roles": {
         "architect": "Logic: Scale noise by std deviation and shift by mean.",
         "translator": "Syntax: return mu + (epsilon * std)",
         "debugger": "Check: Order of operations."
       },
-      "starter_code": "def reparameterize(mu, std, epsilon):\n    # Latent sample\n    return 0",
+      "starter_code": "def reparameterize(mu, std, epsilon):\n    # Latent sample\n    return -1",
       "solution_keywords": [
         "+",
         "*"
@@ -356,13 +356,13 @@
       "id": 651,
       "title": "GenAI: Diffusion Noise",
       "difficulty": "Medium",
-      "description": "Simulate a forward diffusion step. Write a function add_noise(img, noise, beta) that returns img + (noise * beta).",
+      "description": "We are simulating the forward diffusion process for image generation. Write a function add_noise(img, noise, beta) that takes an original image pixel value 'img', a noise value, and a scaling factor 'beta'. The function should return the new pixel value calculated as 'img + (noise * beta)'.",
       "roles": {
         "architect": "Logic: Add scaled noise to the image.",
         "translator": "Syntax: return img + (noise * beta)",
         "debugger": "Check: Multiplication then addition."
       },
-      "starter_code": "def add_noise(img, noise, beta):\n    # Noising step\n    return 0",
+      "starter_code": "def add_noise(img, noise, beta):\n    # Noising step\n    return -1",
       "solution_keywords": [
         "+",
         "*"
@@ -382,13 +382,13 @@
       "id": 204,
       "title": "Survival: Hunger Check",
       "difficulty": "Medium",
-      "description": "Write a function check_status(hunger, health) that returns True if hunger > 80 OR health < 20, otherwise False (Simple Classification Rule).",
+      "description": "Survival monitoring systems are active. We need to trigger an alert if the subject is in critical condition. Write a function check_status(hunger, health) that returns True if 'hunger' is greater than 80 OR if 'health' is less than 20. Otherwise, return False.",
       "roles": {
         "architect": "Logic: Check high hunger or low health.",
         "translator": "Syntax: return hunger > 80 or health < 20",
         "debugger": "Check: Boolean OR."
       },
-      "starter_code": "def check_status(hunger, health):\n    # Check danger\n    return False",
+      "starter_code": "def check_status(hunger, health):\n    # Check danger\n    return None",
       "solution_keywords": [
         "or",
         ">",
@@ -422,13 +422,13 @@
       "id": 601,
       "title": "AI: ReLU Activation",
       "difficulty": "Easy",
-      "description": "Implement the ReLU activation function. If input x is positive, return x. If negative, return 0.",
+      "description": "Neural networks need non-linearity to learn complex patterns. Implement the ReLU (Rectified Linear Unit) activation function relu(x). It should return the input 'x' if 'x' is positive, but return 0 if 'x' is negative (effectively max(0, x)).",
       "roles": {
         "architect": "Logic: Return maximum of x and 0.",
         "translator": "Syntax: return max(0, x)",
         "debugger": "Check: Python max function."
       },
-      "starter_code": "def relu(x):\n    # Rectified Linear Unit\n    return 0",
+      "starter_code": "def relu(x):\n    # Rectified Linear Unit\n    return -1",
       "solution_keywords": [
         "max",
         "0"
@@ -448,13 +448,13 @@
       "id": 602,
       "title": "Model: Linear Predictor",
       "difficulty": "Medium",
-      "description": "Predict house price using y = mx + c. Given slope(m), feature(x), and bias(c).",
+      "description": "We are predicting housing costs using a simple linear regression model. The formula for the line is y = mx + c. Write a function predict(m, x, c) that takes the slope 'm', the feature value 'x', and the y-intercept/bias 'c', and calculates the predicted price 'y'.",
       "roles": {
         "architect": "Logic: Multiply feature by slope and add bias.",
         "translator": "Syntax: return m * x + c",
         "debugger": "Check: Order of operations."
       },
-      "starter_code": "def predict(m, x, c):\n    # Linear regression\n    return 0",
+      "starter_code": "def predict(m, x, c):\n    # Linear regression\n    return -1",
       "solution_keywords": [
         "*",
         "+"
@@ -477,7 +477,7 @@
       "id": 701,
       "title": "Stack: Push Operation",
       "difficulty": "Easy",
-      "description": "Add a new 'plate' to the top of the stack (list). Return the updated stack.",
+      "description": "We are managing a stack of data plates. Implement the 'push' operation in the function push_stack(stack, plate). Add the new 'plate' to the end (top) of the 'stack' list and return the updated stack.",
       "roles": {
         "architect": "Logic: Add item to the end of the collection (LIFO).",
         "translator": "Syntax: stack.append(plate); return stack",
@@ -498,7 +498,7 @@
       "id": 702,
       "title": "Queue: Dequeue",
       "difficulty": "Medium",
-      "description": "Remove the first person waiting in line. Return the person removed.",
+      "description": "A line of processes is waiting for execution. Implement the 'dequeue' operation in dequeue_person(queue). It should remove and return the *first* item from the list 'queue', simulating a First-In-First-Out (FIFO) structure.",
       "roles": {
         "architect": "Logic: Remove item from the front (FIFO).",
         "translator": "Syntax: return queue.pop(0)",
@@ -519,13 +519,13 @@
       "id": 703,
       "title": "Algo: Binary Search Step",
       "difficulty": "Hard",
-      "description": "Find the middle index given 'low' and 'high' pointers for a binary search step.",
+      "description": "Binary search requires finding the middle element to divide the search space. Write a function find_midpoint(low, high) that takes the 'low' and 'high' pointers. Calculate and return the middle index using integer division (average rounded down).",
       "roles": {
         "architect": "Logic: Average of low and high, rounded down.",
         "translator": "Syntax: return (low + high) // 2",
         "debugger": "Check: Integer division (//)."
       },
-      "starter_code": "def find_midpoint(low, high):\n    # Calculate mid\n    return 0",
+      "starter_code": "def find_midpoint(low, high):\n    # Calculate mid\n    return -1",
       "solution_keywords": [
         "+",
         "//",
@@ -546,7 +546,7 @@
       "id": 313,
       "title": "Sort: Leaderboard",
       "difficulty": "Hard",
-      "description": "Write a function rank_players(times) that returns the list sorted in ascending order.",
+      "description": "The competition has ended, and we need to rank the participants. Write a function rank_players(times) that takes a list of race times and returns a new list sorted in ascending order (smallest time first).",
       "roles": {
         "architect": "Logic: Sort list.",
         "translator": "Syntax: times.sort() or return sorted(times)",
@@ -579,13 +579,13 @@
       "id": 101,
       "title": "RPG: Health Potion",
       "difficulty": "Easy",
-      "description": "Your hero is hurt! The potion restores exactly 20 health points. Write a function drink_potion(current_hp) that returns the new HP.",
+      "description": "Your hero has taken damage! You have a standard health potion that restores 20 HP. Write a function drink_potion(current_hp) that takes the 'current_hp' and returns the new health value after adding exactly 20 points.",
       "roles": {
         "architect": "Logic: Add 20 to the input.",
         "translator": "Syntax: return current_hp + 20",
         "debugger": "Check: Ensure integer addition."
       },
-      "starter_code": "def drink_potion(current_hp):\n    # Add 20 to health\n    return 0",
+      "starter_code": "def drink_potion(current_hp):\n    # Add 20 to health\n    return -1",
       "solution_keywords": [
         "+",
         "20"
@@ -615,7 +615,7 @@
       "id": 603,
       "title": "Launch Countdown",
       "difficulty": "Easy",
-      "description": "Write a function get_countdown() that returns a list of numbers from 10 down to 1.",
+      "description": "T-minus 10 seconds to rocket launch. Write a function get_countdown() that generates and returns a list of integers counting down from 10 to 1 (inclusive), like [10, 9, ..., 1].",
       "roles": {
         "architect": "Logic: Loop backwards from 10 to 1.",
         "translator": "Syntax: range(10, 0, -1)",
@@ -649,13 +649,13 @@
       "id": 102,
       "title": "FPS: Reload Mechanic",
       "difficulty": "Easy",
-      "description": "The player pressed 'R'. Write a function reload_weapon() that returns 30 (full magazine).",
+      "description": "The player's weapon is empty. They've initiated a reload sequence. Write a function reload_weapon() that ignores current ammo state and simply returns the integer 30, representing a full magazine.",
       "roles": {
         "architect": "Logic: Reset value to max capacity (30).",
         "translator": "Syntax: return 30",
         "debugger": "Check: Simply return the integer."
       },
-      "starter_code": "def reload_weapon():\n    # Reset ammo\n    return 0",
+      "starter_code": "def reload_weapon():\n    # Reset ammo\n    return -1",
       "solution_keywords": [
         "return",
         "30"
@@ -671,13 +671,13 @@
       "id": 105,
       "title": "Puzzle: Score Multiplier",
       "difficulty": "Easy",
-      "description": "Write a function calc_score(points, bonus) that returns their sum.",
+      "description": "The level is complete. We need to tally the total score. Write a function calc_score(points, bonus) that takes the base 'points' and the 'bonus' points earned, and returns their sum.",
       "roles": {
         "architect": "Logic: Add two inputs together.",
         "translator": "Syntax: return points + bonus",
         "debugger": "Check: Standard addition."
       },
-      "starter_code": "def calc_score(points, bonus):\n    # Add them up\n    return 0",
+      "starter_code": "def calc_score(points, bonus):\n    # Add them up\n    return -1",
       "solution_keywords": [
         "+",
         "points",
@@ -704,7 +704,7 @@
       "id": 106,
       "title": "Inventory: The First Slot",
       "difficulty": "Easy",
-      "description": "Write a function equip_primary(backpack) that returns the first item in the list.",
+      "description": "Quick! The player needs to equip their primary weapon. In this game, the primary weapon is always the first item in the backpack. Write a function equip_primary(backpack) that accepts a list 'backpack' and returns the item at index 0.",
       "roles": {
         "architect": "Logic: Get the element at index 0.",
         "translator": "Syntax: return backpack[0]",
@@ -738,7 +738,7 @@
       "id": 107,
       "title": "Chat: Shout Filter",
       "difficulty": "Easy",
-      "description": "Write a function filter_chat(message) that returns the message in Title Case (capitalized).",
+      "description": "Stop the shouting! Users are typing in all caps. Write a function filter_chat(message) that takes a 'message' string and returns it in Title Case (where only the first letter is capitalized, and the rest are lowercase), making it polite.",
       "roles": {
         "architect": "Logic: Capitalize only the first letter.",
         "translator": "Syntax: return message.capitalize()",
@@ -767,7 +767,7 @@
       "id": 108,
       "title": "Economy: Gold Loot",
       "difficulty": "Easy",
-      "description": "Write a function generate_loot() that returns a list containing ['Gold Coin', 'Dagger'].",
+      "description": "The monster has been defeated. Generate the standard loot drop. Write a function generate_loot() that creates and returns a list containing exactly two strings: 'Gold Coin' and 'Dagger'.",
       "roles": {
         "architect": "Logic: Create a list with two specific strings.",
         "translator": "Syntax: return ['Gold Coin', 'Dagger']",
@@ -794,13 +794,13 @@
       "id": 109,
       "title": "Stats: Level Up Cost",
       "difficulty": "Easy",
-      "description": "Write a function calc_xp(current_level) that returns current_level multiplied by 100.",
+      "description": "The player has leveled up! We need to calculate the experience points required for the next milestone. Write a function calc_xp(current_level) that takes the 'current_level' and returns the result of multiplying it by 100.",
       "roles": {
         "architect": "Logic: Multiply input by 100.",
         "translator": "Syntax: return current_level * 100",
         "debugger": "Check: Integer multiplication."
       },
-      "starter_code": "def calc_xp(current_level):\n    # Calculate XP\n    return 0",
+      "starter_code": "def calc_xp(current_level):\n    # Calculate XP\n    return -1",
       "solution_keywords": [
         "*",
         "100"
@@ -824,7 +824,7 @@
       "id": 111,
       "title": "UI: Welcome Message",
       "difficulty": "Easy",
-      "description": "Write a function show_intro(player_name) that returns 'Welcome, ' concatenated with player_name.",
+      "description": "We need to personalize the start screen. Write a function show_intro(player_name) that accepts a 'player_name' string. It should return a greeting string in the format: 'Welcome, ' followed immediately by the player's name.",
       "roles": {
         "architect": "Logic: Combine static string with input variable.",
         "translator": "Syntax: return 'Welcome, ' + player_name",
@@ -854,7 +854,7 @@
       "id": 112,
       "title": "Combat: Shield Break",
       "difficulty": "Easy",
-      "description": "Write a function break_shield() that simply returns False.",
+      "description": "The shield generator has been hit by an EMP! It must be disabled immediately. Write a function break_shield() that takes no arguments and simply returns the boolean value False.",
       "roles": {
         "architect": "Logic: Return boolean False.",
         "translator": "Syntax: return False",
@@ -875,13 +875,13 @@
       "id": 113,
       "title": "Shop: Buy Item",
       "difficulty": "Easy",
-      "description": "Write a function buy_item(gold, price) that returns gold minus price.",
+      "description": "A transaction is taking place. The player is buying an item. Write a function buy_item(gold, price) that takes the player's current 'gold' and the item's 'price'. Return the remaining gold after subtracting the price.",
       "roles": {
         "architect": "Logic: Subtract price from gold.",
         "translator": "Syntax: return gold - price",
         "debugger": "Check: Order of operations."
       },
-      "starter_code": "def buy_item(gold, price):\n    # Deduct gold\n    return 0",
+      "starter_code": "def buy_item(gold, price):\n    # Deduct gold\n    return -1",
       "solution_keywords": [
         "-"
       ],
@@ -906,7 +906,7 @@
       "id": 114,
       "title": "Party: Add Member",
       "difficulty": "Easy",
-      "description": "Write a function recruit_hero(party) that adds 'Rogue' to the party list and returns the list.",
+      "description": "A new adventurer wants to join your quest. Write a function recruit_hero(party) that takes your current 'party' list. Append the string 'Rogue' to the end of the list and return the updated party.",
       "roles": {
         "architect": "Logic: Append item to list.",
         "translator": "Syntax: party.append('Rogue')\n    return party",
@@ -943,13 +943,13 @@
       "id": 115,
       "title": "Settings: Volume Up",
       "difficulty": "Easy",
-      "description": "Write a function adjust_volume(volume) that returns volume plus 1.",
+      "description": "The audio is too quiet. Write a function adjust_volume(volume) that takes the current 'volume' level integer and returns it increased by 1.",
       "roles": {
         "architect": "Logic: Increment by 1.",
         "translator": "Syntax: return volume + 1",
         "debugger": "Check: Addition."
       },
-      "starter_code": "def adjust_volume(volume):\n    # Increase volume\n    return 0",
+      "starter_code": "def adjust_volume(volume):\n    # Increase volume\n    return -1",
       "solution_keywords": [
         "+",
         "1"
@@ -973,13 +973,13 @@
       "id": 201,
       "title": "Platformer: Double Jump",
       "difficulty": "Medium",
-      "description": "Write a function check_jump(jump_count) that returns True if jump_count is less than 2, otherwise False.",
+      "description": "We need to limit the player to a double jump mechanic. Write a function check_jump(jump_count) that accepts 'jump_count'. Return True if the player has jumped fewer than 2 times, otherwise return False to prevent further jumps.",
       "roles": {
         "architect": "Logic: Return True if count < 2.",
         "translator": "Syntax: return jump_count < 2",
         "debugger": "Check: Comparison logic."
       },
-      "starter_code": "def check_jump(jump_count):\n    # Check limit\n    return False",
+      "starter_code": "def check_jump(jump_count):\n    # Check limit\n    return None",
       "solution_keywords": [
         "<",
         "2"
@@ -1009,13 +1009,13 @@
       "id": 202,
       "title": "RPG: Critical Hit",
       "difficulty": "Medium",
-      "description": "Write a function calculate_crit(roll, damage) that returns damage * 3 if roll > 90, otherwise returns damage.",
+      "description": "It's a critical hit check! Write a function calculate_crit(roll, damage) that takes a d100 'roll' and the base 'damage'. If the roll is strictly greater than 90, the attack is a critical hit: return triple the damage (damage * 3). Otherwise, return the normal damage.",
       "roles": {
         "architect": "Logic: If roll > 90, triple damage. Else normal.",
         "translator": "Syntax: if roll > 90:\n        return damage * 3\n    return damage",
         "debugger": "Check: Conditional return."
       },
-      "starter_code": "def calculate_crit(roll, damage):\n    # Check crit\n    return damage",
+      "starter_code": "def calculate_crit(roll, damage):\n    # Check crit\n    return -1",
       "solution_keywords": [
         "if",
         ">",
@@ -1043,7 +1043,7 @@
       "id": 203,
       "title": "Loot: Rare Drop",
       "difficulty": "Medium",
-      "description": "Write a function open_chest(item) that returns 'Fanfare' if item is 'Legendary', otherwise 'Click'.",
+      "description": "The player is opening a loot box. We need sound effects. Write a function open_chest(item) that accepts an 'item' string. If the item is 'Legendary', return the string 'Fanfare'. For any other item, return 'Click'.",
       "roles": {
         "architect": "Logic: Check if item equals 'Legendary'.",
         "translator": "Syntax: if item == 'Legendary':\n        return 'Fanfare'\n    return 'Click'",
@@ -1074,13 +1074,13 @@
       "id": 205,
       "title": "Crafting: Make Sword",
       "difficulty": "Medium",
-      "description": "Write a function try_craft(iron, wood) that returns True if iron >= 2 AND wood >= 1, otherwise False.",
+      "description": "The player is at the forge attempting to craft a sword. This recipe requires at least 2 Iron and 1 Wood. Write a function try_craft(iron, wood) that takes 'iron' and 'wood' counts. Return True if both requirements are met, otherwise False.",
       "roles": {
         "architect": "Logic: Check sufficient resources.",
         "translator": "Syntax: return iron >= 2 and wood >= 1",
         "debugger": "Check: Boolean AND."
       },
-      "starter_code": "def try_craft(iron, wood):\n    # Check resources\n    return False",
+      "starter_code": "def try_craft(iron, wood):\n    # Check resources\n    return None",
       "solution_keywords": [
         "and",
         ">="
@@ -1106,13 +1106,13 @@
       "id": 206,
       "title": "Inventory: Backpack Limit",
       "difficulty": "Medium",
-      "description": "Write a function check_capacity(items, max_slots) that returns True if len(items) >= max_slots, otherwise False.",
+      "description": "The player is trying to pick up an item, but we must check if their bag is full. Write a function check_capacity(items, max_slots) that accepts a list of 'items' and a 'max_slots' integer. Return True if the number of items is greater than or equal to the max slots (meaning it's full), otherwise False.",
       "roles": {
         "architect": "Logic: Check if list length exceeds limit.",
         "translator": "Syntax: return len(items) >= max_slots",
         "debugger": "Check: List length function."
       },
-      "starter_code": "def check_capacity(items, max_slots):\n    # Check if full\n    return False",
+      "starter_code": "def check_capacity(items, max_slots):\n    # Check if full\n    return None",
       "solution_keywords": [
         "len",
         ">="
@@ -1144,7 +1144,7 @@
       "id": 208,
       "title": "FPS: Auto-Reload",
       "difficulty": "Medium",
-      "description": "Write a function check_ammo(ammo) that returns 'Reload' if ammo is 0, 'Low' if ammo < 5, else 'OK'.",
+      "description": "The HUD needs to display ammo status. Write a function check_ammo(ammo) that accepts an integer 'ammo'. Return 'Reload' if ammo is exactly 0. Return 'Low' if ammo is between 1 and 4 (less than 5). Otherwise, return 'OK'.",
       "roles": {
         "architect": "Logic: Multiple condition check.",
         "translator": "Syntax: Use if/elif/else structure.",
@@ -1181,7 +1181,7 @@
       "id": 209,
       "title": "Race: Lap Counter",
       "difficulty": "Medium",
-      "description": "Write a function cross_line(laps) that increments laps by 1. If laps becomes 3, return 'Finish', else return 'Continue'.",
+      "description": "The car is crossing the finish line. Write a function cross_line(laps) that takes the current 'laps' count. First, add 1 to the laps. Then, check the new count: if it equals 3, return 'Finish'. Otherwise, return 'Continue'.",
       "roles": {
         "architect": "Logic: Increment then check.",
         "translator": "Syntax: laps += 1\n    if laps == 3...",
@@ -1213,7 +1213,7 @@
       "id": 210,
       "title": "Cards: Deck Builder",
       "difficulty": "Medium",
-      "description": "Write a function play_card(hand) that removes 'Ace' from the list if present, returning the modified list.",
+      "description": "In this card game, holding an Ace is dangerous. Write a function play_card(hand) that accepts a list 'hand'. If the string 'Ace' is in the hand, remove it. Finally, return the modified hand.",
       "roles": {
         "architect": "Logic: Check existence then remove.",
         "translator": "Syntax: if 'Ace' in hand:\n        hand.remove('Ace')",
@@ -1252,7 +1252,7 @@
       "id": 211,
       "title": "Login: Password Reset",
       "difficulty": "Medium",
-      "description": "Write a function reset_pass(email, database) that returns 'Sent' if email is in database list, else 'Unknown'.",
+      "description": "A user has requested a password reset. Write a function reset_pass(email, database) that takes an 'email' and a 'database' list. If the email exists inside the database list, return 'Sent'. If not found, return 'Unknown'.",
       "roles": {
         "architect": "Logic: List search.",
         "translator": "Syntax: return 'Sent' if email in database else 'Unknown'",
@@ -1289,7 +1289,7 @@
       "id": 212,
       "title": "Puzzle: Sequence",
       "difficulty": "Medium",
-      "description": "Write a function decode(secret_code) that returns the last 3 characters of the string.",
+      "description": "We have intercepted a coded message, but only the suffix matters. Write a function decode(secret_code) that accepts a string 'secret_code'. Extract and return the last 3 characters of that string.",
       "roles": {
         "architect": "Logic: String slicing from end.",
         "translator": "Syntax: return secret_code[-3:]",
@@ -1318,13 +1318,13 @@
       "id": 213,
       "title": "Shop: Discount",
       "difficulty": "Medium",
-      "description": "Write a function apply_coupon(price) that returns price multiplied by 0.9.",
+      "description": "It's a sale! Write a function apply_coupon(price) that takes an item's 'price'. Calculate the new price by applying a 10% discount (multiplying by 0.9) and return the result.",
       "roles": {
         "architect": "Logic: Apply 10% off.",
         "translator": "Syntax: return price * 0.9",
         "debugger": "Check: Float multiplication."
       },
-      "starter_code": "def apply_coupon(price):\n    # Discount\n    return 0",
+      "starter_code": "def apply_coupon(price):\n    # Discount\n    return -1",
       "solution_keywords": [
         "*",
         "0.9"
@@ -1348,7 +1348,7 @@
       "id": 214,
       "title": "Music: Playlist Loop",
       "difficulty": "Medium",
-      "description": "Write a function loop_music() that simply returns 0 (resetting index).",
+      "description": "The playlist has reached the end. We need to loop back to the first song. Write a function loop_music() that ignores inputs and simply returns the integer 0, representing the index of the first track.",
       "roles": {
         "architect": "Logic: Return 0.",
         "translator": "Syntax: return 0",
@@ -1369,7 +1369,7 @@
       "id": 215,
       "title": "Settings: Dark Mode",
       "difficulty": "Medium",
-      "description": "Write a function toggle_theme(theme) that returns 'Dark' if input is 'Light', else 'Light'.",
+      "description": "The user is toggling the UI theme. Write a function toggle_theme(theme) that accepts the current 'theme' string. If it is 'Light', return 'Dark'. Otherwise, return 'Light'.",
       "roles": {
         "architect": "Logic: Swap string values.",
         "translator": "Syntax: if theme == 'Light'...",

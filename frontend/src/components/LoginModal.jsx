@@ -1,9 +1,8 @@
-// frontend/src/components/LoginModal.jsx
 import React, { useState } from 'react';
 import axios from 'axios';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// --- ICONS (Inline for zero-dependency) ---
+// --- ICONS ---
 const UserIcon = () => (
   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
@@ -28,7 +27,7 @@ const LoginModal = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [mode, setMode] = useState('login'); // 'login' or 'register' for UI state
+  const [activeTab, setActiveTab] = useState('login'); // 'login' or 'register'
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -41,21 +40,22 @@ const LoginModal = ({ onLogin }) => {
     setError('');
 
     try {
-      // Backend handles both Login and Registration in one endpoint logic
-      // We preserve this functionality exactly as requested.
+      // Both Login and Register use the same endpoint, backend handles logic
       const response = await axios.post(`http://127.0.0.1:8000/register`, {
           username: username,
           password: password
       });
       
-      // Artificial delay for smooth UX transition
+      const successMessage = activeTab === 'register' ? 'Identity Created. Initializing...' : 'Access Granted.';
+      
+      // Delay for UX
       setTimeout(() => {
         onLogin({
           id: response.data.user_id,
           username: username,
           is_premium: response.data.is_premium
         });
-      }, 800);
+      }, 1000);
 
     } catch (err) {
       console.error(err);
@@ -80,12 +80,6 @@ const LoginModal = ({ onLogin }) => {
           transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
           className="absolute top-1/4 left-1/4 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl"
         />
-        <motion.div 
-          animate={{ x: [0, -30, 0], y: [0, 30, 0], opacity: [0.2, 0.4, 0.2] }}
-          transition={{ duration: 15, repeat: Infinity, ease: "easeInOut" }}
-          className="absolute bottom-1/3 right-1/4 w-64 h-64 bg-purple-600/10 rounded-full blur-3xl"
-        />
-        {/* Grid Overlay */}
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
       </div>
 
@@ -99,7 +93,7 @@ const LoginModal = ({ onLogin }) => {
         {/* Glowing Border Container */}
         <div className="absolute inset-0 bg-gradient-to-r from-blue-500 to-cyan-400 rounded-2xl blur opacity-20 animate-pulse"></div>
         
-        <div className="relative bg-slate-900/60 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="relative bg-slate-900/80 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl overflow-hidden">
           
           {/* Header Section */}
           <div className="p-8 pb-6 text-center border-b border-slate-700/50">
@@ -111,8 +105,28 @@ const LoginModal = ({ onLogin }) => {
               <h1 className="text-3xl font-extrabold tracking-tight mb-2">
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 to-cyan-200">DEEP BLUE</span>
               </h1>
-              <p className="text-slate-400 text-sm font-medium">Secure Neural Interface</p>
+              <p className="text-slate-400 text-sm font-medium uppercase tracking-widest">Neural Interface Portal</p>
             </motion.div>
+          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-slate-700/50">
+            <button
+              onClick={() => { setActiveTab('login'); setError(''); }}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-all ${
+                activeTab === 'login' ? 'bg-slate-800 text-blue-400 border-b-2 border-blue-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+              }`}
+            >
+              Login
+            </button>
+            <button
+              onClick={() => { setActiveTab('register'); setError(''); }}
+              className={`flex-1 py-3 text-sm font-bold uppercase tracking-wider transition-all ${
+                activeTab === 'register' ? 'bg-slate-800 text-emerald-400 border-b-2 border-emerald-400' : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/50'
+              }`}
+            >
+              Register
+            </button>
           </div>
 
           {/* Form Section */}
@@ -131,7 +145,7 @@ const LoginModal = ({ onLogin }) => {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all shadow-inner"
-                    placeholder="Enter username"
+                    placeholder={activeTab === 'login' ? "Enter username" : "Create username"}
                     autoFocus
                   />
                 </div>
@@ -149,7 +163,7 @@ const LoginModal = ({ onLogin }) => {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="w-full bg-slate-950/50 border border-slate-700 rounded-xl py-3 pl-12 pr-4 text-white placeholder-slate-600 focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 outline-none transition-all shadow-inner"
-                    placeholder="••••••••"
+                    placeholder={activeTab === 'login' ? "••••••••" : "Create password"}
                   />
                 </div>
               </div>
@@ -176,30 +190,16 @@ const LoginModal = ({ onLogin }) => {
                 className={`relative w-full py-4 rounded-xl font-bold text-sm tracking-wider uppercase transition-all duration-300 overflow-hidden group ${
                   loading 
                     ? 'bg-slate-800 cursor-not-allowed text-slate-400' 
-                    : 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 hover:-translate-y-0.5'
+                    : activeTab === 'login' 
+                        ? 'bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white shadow-lg shadow-blue-900/30 hover:shadow-blue-900/50 hover:-translate-y-0.5'
+                        : 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white shadow-lg shadow-emerald-900/30 hover:shadow-emerald-900/50 hover:-translate-y-0.5'
                 }`}
               >
                 <div className="flex items-center justify-center gap-2 relative z-10">
                   {loading && <Spinner />}
-                  <span>{loading ? 'Authenticating...' : (mode === 'login' ? 'Initialize System' : 'Create Identity')}</span>
+                  <span>{loading ? 'Authenticating...' : (activeTab === 'login' ? 'Initialize System' : 'Create Identity')}</span>
                 </div>
-                {/* Button Shine Effect */}
-                {!loading && <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent"></div>}
               </button>
-
-              {/* Mode Toggle (Visual Only as backend handles both) */}
-              <div className="text-center pt-2">
-                <p className="text-xs text-slate-500">
-                  {mode === 'login' ? "New to the protocol? " : "Already verified? "}
-                  <button 
-                    type="button"
-                    onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
-                    className="text-blue-400 hover:text-blue-300 font-bold transition-colors underline decoration-blue-500/30 hover:decoration-blue-400"
-                  >
-                    {mode === 'login' ? "Register Identity" : "Login Here"}
-                  </button>
-                </p>
-              </div>
 
             </form>
           </div>
@@ -207,7 +207,7 @@ const LoginModal = ({ onLogin }) => {
           {/* Footer Status */}
           <div className="bg-slate-950/30 p-3 border-t border-slate-700/50 flex justify-between items-center text-[10px] text-slate-500 font-mono uppercase px-8">
             <span>System Status: <span className="text-green-500">Online</span></span>
-            <span>v2.4.0</span>
+            <span>Secure Connection</span>
           </div>
 
         </div>

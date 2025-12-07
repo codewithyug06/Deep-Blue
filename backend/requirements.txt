@@ -3,9 +3,12 @@ uvicorn[standard]>=0.23.0
 python-multipart>=0.0.6
 pydantic>=2.0.0
 python-dotenv>=1.0.0
+langchain
 langchain-core
-langchain-google-genai
 langchain-community
+langchain-google-genai
+langchain-chroma
+chromadb
 passlib[argon2]
 argon2-cffi
 sqlalchemy>=2.0.0
