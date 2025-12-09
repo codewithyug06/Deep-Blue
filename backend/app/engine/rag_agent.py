@@ -1,7 +1,14 @@
 import os
 import re
 import json
+import logging
+import ast
 from dotenv import load_dotenv
+
+# --- 1. CONFIGURATION & LOGGING ---
+# Suppress noisy "Retrying..." logs from the Google library
+logging.getLogger("langchain_google_genai").setLevel(logging.ERROR)
+logging.getLogger("google.api_core").setLevel(logging.ERROR)
 
 # Modern LangChain Imports
 from langchain_google_genai import ChatGoogleGenerativeAI, GoogleGenerativeAIEmbeddings
@@ -10,218 +17,275 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_chroma import Chroma
-# FIXED IMPORT: Use langchain_core instead of langchain.docstore
 from langchain_core.documents import Document
+from google.api_core.exceptions import ResourceExhausted
 
 # Load API Keys
 load_dotenv()
 
-# Base Socratic Personality Definition
-BASE_SYSTEM_PROMPT = """
-You are 'Deep Blue', a Socratic Coding Tutor, guiding a student through complex cyber raids using Python.
-Your communication must match the current mission's active role.
+# --- 2. PROMPT DEFINITIONS ---
+SOCRATIC_SYSTEM_PROMPT = """
+You are 'Deep Blue', a Socratic Coding Tutor.
+Your goal is to build the student's problem-solving intuition.
 
-RULES:
-1. NEVER give the full code solution. Focus on guided discovery.
-2. Keep your responses short (under 3 sentences).
-3. Be encouraging and maintain the "futuristic combat/programming" tone.
-4. If the student's code is empty or syntactically correct but doesn't solve the mission, refer to the MISSION OBJECTIVE.
-5. Use the provided 'Context from Past Performance' to personalize your advice if relevant.
+STRICT RESPONSE PROTOCOL:
+1. 🧐 **Observation**: Acknowledge code state.
+2. 💡 **Strategic Hint**: Give a conceptual clue.
+3. ❓ **Guiding Question**: Prompt the next step.
+
+Tone: Futuristic, concise (max 4 sentences).
 """
 
+DOUBT_CLEARING_PROMPT = """
+You are 'Deep Blue', a Python Expert. Answer directly and concisely.
+"""
+
+# --- 3. ROBUST AI CLASS ---
 class SocraticAI:
     def __init__(self):
-        # 1. Initialize the Google Brain
-        if not os.getenv("GOOGLE_API_KEY"):
-            raise ValueError("GOOGLE_API_KEY not found in .env file")
-
-        # LLM for Chat
-        self.llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-preview-09-2025", 
-            temperature=0.5
-        )
+        self.api_key = os.getenv("GOOGLE_API_KEY")
+        self.api_ready = bool(self.api_key)
         
-        # LLM for Logic/Generation tasks (Deterministic)
-        self.logic_llm = ChatGoogleGenerativeAI(
-            model="gemini-2.5-flash-preview-09-2025", 
-            temperature=0.1
-        )
+        # CIRCUIT BREAKER: Prevents hanging if quota is hit
+        self.quota_exhausted = False 
 
-        # 2. Vector Database Integration (The "Memory")
-        # Wrapped in try/except to handle initialization failures gracefully
-        try:
-            self.embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001")
-            self.vector_db = Chroma(
-                collection_name="deepblue_knowledge",
-                embedding_function=self.embeddings,
-                persist_directory="./chroma_db"
+        # Initialize LLMs (if key exists)
+        if self.api_ready:
+            # max_retries=0 is CRITICAL to prevent server hanging on 429 errors
+            self.llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash-preview-09-2025", 
+                temperature=0.5,
+                max_retries=0, 
+                request_timeout=5
             )
-            self.memory_active = True
-        except Exception as e:
-            print(f"⚠️ Vector DB Initialization Failed: {e}")
-            self.memory_active = False
+            self.logic_llm = ChatGoogleGenerativeAI(
+                model="gemini-2.5-flash-preview-09-2025", 
+                temperature=0.1,
+                max_retries=0,
+                request_timeout=5
+            )
+        else:
+            self.llm = None
+            self.logic_llm = None
 
-        # 3. Define the Prompt Template (Dynamic System Prompt)
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", "{system_prompt}"), 
-            MessagesPlaceholder(variable_name="history"),
-            ("human", "{input}"),
-        ])
+        # Initialize Vector DB (Memory)
+        self.memory_active = False
+        self.vector_db = None
+        
+        if self.api_ready:
+            try:
+                self.embeddings = GoogleGenerativeAIEmbeddings(
+                    model="models/embedding-001",
+                    google_api_key=self.api_key
+                )
+                self.vector_db = Chroma(
+                    collection_name="deepblue_knowledge",
+                    embedding_function=self.embeddings,
+                    persist_directory="./chroma_db"
+                )
+                self.memory_active = True
+            except Exception as e:
+                print(f"⚠️ Memory Init Warning: {e}")
 
-        # 4. Create the Chain
-        self.chain = self.prompt | self.llm | StrOutputParser()
-
-        # 5. Memory Management
+        # Memory Store for Chat History
         self.store = {} 
 
-        def get_session_history(session_id: str) -> InMemoryChatMessageHistory:
-            if session_id not in self.store:
-                self.store[session_id] = InMemoryChatMessageHistory()
-            return self.store[session_id]
+        # Setup LangChain Pipelines
+        if self.api_ready:
+            # Socratic Chain
+            self.socratic_prompt = ChatPromptTemplate.from_messages([
+                ("system", "{system_prompt}"), 
+                MessagesPlaceholder(variable_name="history"),
+                ("human", "{input}"),
+            ])
+            self.socratic_chain = self.socratic_prompt | self.llm | StrOutputParser()
+            
+            # Doubt Chain
+            self.doubt_prompt = ChatPromptTemplate.from_messages([
+                ("system", "{system_prompt}"),
+                MessagesPlaceholder(variable_name="history"),
+                ("human", "{input}"),
+            ])
+            self.doubt_chain = self.doubt_prompt | self.llm | StrOutputParser()
 
-        self.conversation = RunnableWithMessageHistory(
-            self.chain,
-            get_session_history,
-            input_messages_key="input",
-            history_messages_key="history",
-        )
+            # Wrapped Conversations with History
+            self.socratic_conversation = RunnableWithMessageHistory(
+                self.socratic_chain, self.get_session_history, input_messages_key="input", history_messages_key="history"
+            )
+            self.doubt_conversation = RunnableWithMessageHistory(
+                self.doubt_chain, self.get_session_history, input_messages_key="input", history_messages_key="history"
+            )
+
+    # --- MEMORY MANAGEMENT ---
+    def get_session_history(self, session_id: str) -> InMemoryChatMessageHistory:
+        if session_id not in self.store:
+            self.store[session_id] = InMemoryChatMessageHistory()
+        return self.store[session_id]
 
     def _extract_mission_context(self, user_input: str):
-        """Extracts mission details from the user_input string sent by the frontend."""
-        match_objective = re.search(r"MISSION OBJECTIVE: (.*?)\n", user_input, re.DOTALL)
-        match_architect = re.search(r"Architect: (.*?)\n", user_input, re.DOTALL)
-        match_translator = re.search(r"Translator: (.*?)\n", user_input, re.DOTALL)
-        
-        objective = match_objective.group(1).strip() if match_objective else "General code review."
-        role = "Translator"
-        role_description = match_translator.group(1).strip() if match_translator else "Focus on syntax."
-        
-        return objective, role, role_description
+        match = re.search(r"MISSION OBJECTIVE: (.*?)\n", user_input, re.DOTALL)
+        return match.group(1).strip() if match else "General code review."
 
-    # --- NEW: RAG & LEARNING FEATURES (With Safety Nets) ---
+    # --- 4. SMART OFFLINE SIMULATION (Deep Analysis Engine) ---
+    def _get_mock_response(self, user_code, user_input=""):
+        """
+        Deep Static Analysis Engine.
+        Analyzes user code structure to answer questions about Logic, Loops, Errors, and Variables.
+        """
+        user_query = user_input.lower().strip() if user_input else ""
+        code_str = user_code.strip()
+        lines = code_str.split('\n')
 
-    def log_student_mistake(self, user_code: str, feedback: str, topic: str):
-        """Indexes a mistake so the tutor remembers it later."""
-        if not self.memory_active or not user_code.strip():
-            return
+        # --- A. DETECT CODE ISSUES (Static Analysis) ---
+        issues = []
         
+        # 1. Assignment in Condition (if x = 5)
+        if re.search(r"if\s+[a-zA-Z_]\w*\s*=[^=]", code_str):
+            issues.append("assignment_in_if")
+            
+        # 2. Shadowing Built-ins (list = ...)
+        if re.search(r"\b(list|dict|str|int|sum|max|min)\s*=", code_str):
+            issues.append("shadowing_builtin")
+            
+        # 3. Missing Print Parentheses (Python 2 style)
+        if re.search(r"print\s+[\"']", code_str):
+            issues.append("missing_print_parens")
+            
+        # 4. Infinite Loop Risk (while True without break)
+        if "while True" in code_str and "break" not in code_str:
+            issues.append("infinite_loop")
+            
+        # 5. List Append Assignment (x = x.append(y))
+        if re.search(r"\w+\s*=\s*\w+\.append\(", code_str):
+            issues.append("append_assignment")
+
+        # 6. Missing Return in Function
+        has_def = "def " in code_str
+        has_return = "return" in code_str
+        if has_def and not has_return:
+            issues.append("missing_return")
+
+        # --- B. ANSWER USER QUERY (Context-Aware) ---
+
+        # 1. LOGIC & ERRORS ("What is wrong?", "Fix this", "Give logic")
+        if any(w in user_query for w in ["wrong", "error", "fix", "bug", "why", "logic", "hint"]):
+            if "assignment_in_if" in issues:
+                return "🧐 **Observation**: I detected an assignment (`=`) inside an `if` statement.\n💡 **Strategic Hint**: In Python, `=` assigns value, while `==` compares values.\n❓ **Guiding Question**: Did you mean to compare the variable?"
+            if "shadowing_builtin" in issues:
+                return "⚠️ **Critical Error**: You are assigning a value to a built-in keyword (like `list` or `sum`).\n💡 **Strategic Hint**: This overwrites Python's core functionality, causing crashes later.\n❓ **Guiding Question**: Can you rename that variable to something more specific?"
+            if "append_assignment" in issues:
+                return "🧐 **Observation**: You are assigning the result of `.append()` to a variable.\n💡 **Strategic Hint**: The `.append()` method modifies the list **in-place** and returns `None`.\n❓ **Guiding Question**: What happens if you remove the `=` assignment?"
+            if "missing_print_parens" in issues:
+                return "🧐 **Observation**: Your `print` statement looks like Python 2.\n💡 **Strategic Hint**: Python 3 requires parentheses for functions.\n❓ **Guiding Question**: Can you wrap your text in `()`?"
+            if "missing_return" in issues:
+                return "🧐 **Observation**: Your function runs but returns no data.\n💡 **Strategic Hint**: The system needs a result to verify success.\n❓ **Guiding Question**: What value should be returned at the end?"
+            if "pass" in code_str:
+                return "🧐 **Observation**: `pass` placeholder detected.\n💡 **Strategic Hint**: Logic is required here to process the input.\n❓ **Guiding Question**: How will you manipulate the input data?"
+            
+            # If no specific errors found but user asks for logic
+            if has_def:
+                return "🧐 **Observation**: Your syntax appears valid, but the logic might need refinement.\n💡 **Strategic Hint**: Trace your variable values step-by-step through the logic flow.\n❓ **Guiding Question**: Have you checked your edge cases?"
+
+        # 2. LOOPS ("What loop?", "How to loop?")
+        if any(w in user_query for w in ["loop", "iterate", "repeat", "cycle"]):
+            if "infinite_loop" in issues:
+                return "⚠️ **Risk Alert**: Your `while` loop has no exit condition.\n💡 **Strategic Hint**: This will run forever and freeze the system.\n❓ **Guiding Question**: Where should you place a `break` statement?"
+            if "for" in code_str:
+                return "🧐 **Observation**: You are using a `for` loop.\n💡 **Concept**: This controls the flow by iterating over a sequence (like a list or range).\n❓ **Guiding Question**: Is your iterator variable capturing the correct value?"
+            if "while" in code_str:
+                return "🧐 **Observation**: You are using a `while` loop.\n💡 **Concept**: This repeats logic as long as the condition remains `True`.\n❓ **Guiding Question**: Does your logic ensure the condition eventually becomes `False`?"
+            return "🧐 **Observation**: No loops detected yet.\n💡 **Concept**: Loops allow you to process data collections or repeat actions.\n❓ **Guiding Question**: Do you need a `for` loop (fixed count) or `while` loop (conditional)?"
+
+        # 3. VARIABLES ("Variable help", "What is x?")
+        if any(w in user_query for w in ["variable", "var", "value", "store"]):
+            if "assignment_in_if" in issues:
+                return "🧐 **Observation**: Variable assignment detected inside a condition.\n💡 **Strategic Hint**: Variables should be assigned before they are compared.\n❓ **Guiding Question**: Check your `if` statement syntax."
+            return "📚 **Concept: Variables**: These are containers for data.\n💡 **Tip**: Give them descriptive names (e.g., `player_score` instead of `x`) to make logic clearer.\n❓ **Guiding Question**: Are you initializing all variables before using them?"
+
+        # 4. DEFAULT ANALYZE (Button Click or Generic Query)
+        # If no specific query match, fallback to the standard analysis of the code state
+        if not code_str:
+            return "🧐 **Observation**: The workspace is empty.\n💡 **Strategic Hint**: Start by defining the solution structure.\n❓ **Guiding Question**: ready to write `def solve():`?"
+        
+        if "pass" in code_str:
+            return "🧐 **Observation**: `pass` placeholder detected.\n💡 **Strategic Hint**: Logic is required here to process the input.\n❓ **Guiding Question**: How will you manipulate the input data?"
+
+        if "missing_return" in issues:
+            return "🧐 **Observation**: The function runs but returns no data.\n💡 **Strategic Hint**: The system needs a result to verify success.\n❓ **Guiding Question**: What value should be returned at the end?"
+
+        # Fallback for "looks good" state
+        return "🧐 **Observation**: Code structure appears valid.\n💡 **Strategic Hint**: Double-check your logic flow against the mission requirements.\n❓ **Guiding Question**: Have you run the **Execute** command to test specific inputs?"
+
+    # --- 5. MAIN CHAT HANDLER (With Circuit Breaker) ---
+    def chat(self, user_input: str, user_code: str = "", session_id: str = "default_user", mode: str = "socratic"):
+        # STEP 1: Check Circuit Breaker (Fail Fast)
+        if not self.api_ready or self.quota_exhausted:
+            return self._get_mock_response(user_code, user_input)
+
         try:
-            doc = Document(
-                page_content=user_code,
-                metadata={"feedback": feedback, "topic": topic, "type": "mistake"}
-            )
-            self.vector_db.add_documents([doc])
-        except Exception as e:
-            # Silently fail on quota errors to keep the app running
-            print(f"⚠️ Memory Log Skipped (Quota/Network): {e}")
+            # STEP 2: RAG Retrieval (Memory)
+            rag_context = ""
+            if self.memory_active and user_code and mode == "socratic":
+                try:
+                    results = self.vector_db.similarity_search(user_code, k=1)
+                    if results:
+                        rag_context = f"\nContext from Past: '{results[0].metadata.get('feedback', '')}'"
+                except Exception as e:
+                    # If memory fails, just disable it locally and proceed
+                    self.memory_active = False 
+                    if "429" in str(e):
+                        self.quota_exhausted = True # Trip breaker if quota hit here
 
+            # STEP 3: Generate Response
+            if self.quota_exhausted:
+                 return self._get_mock_response(user_code, user_input)
+
+            if mode == "socratic":
+                objective = self._extract_mission_context(user_input)
+                dynamic_prompt = f"{SOCRATIC_SYSTEM_PROMPT}\nMISSION: {objective}\n{rag_context}"
+                full_input = f"{user_input}\n[STUDENT CODE]:\n{user_code}"
+                
+                response = self.socratic_conversation.invoke(
+                    {"input": full_input, "system_prompt": dynamic_prompt},
+                    config={"configurable": {"session_id": session_id}}
+                )
+            else:
+                # Doubt Mode
+                response = self.doubt_conversation.invoke(
+                    {"input": user_input, "system_prompt": DOUBT_CLEARING_PROMPT},
+                    config={"configurable": {"session_id": session_id}}
+                )
+            
+            return response
+
+        except Exception as e:
+            error_str = str(e)
+            
+            # STEP 4: Handle Quota Errors Gracefully
+            if "429" in error_str or "ResourceExhausted" in error_str:
+                print("⚠️ API QUOTA HIT. Enabling Offline Mode.")
+                self.quota_exhausted = True # Trip the circuit breaker for future calls
+                return self._get_mock_response(user_code, user_input)
+            
+            # General Error
+            print(f"❌ AI Error: {error_str}")
+            return f"⚠️ **System Error**: {error_str[:50]}..."
+
+    # --- 6. SAFEGUARDED UTILITY METHODS ---
     def generate_custom_mission(self, weakness: str):
-        """
-        Adaptive Curriculum: Generates a valid JSON mission based on a user's weakness.
-        """
-        prompt = f"""
-        Generate a unique Python coding mission (JSON format) for a student struggling with '{weakness}'.
-        
-        Format must match this schema exactly, valid JSON only, no markdown:
-        {{
-            "id": 999,
-            "title": "Adaptive: <Creative Title>",
-            "difficulty": "Medium",
-            "description": "<Cyberpunk themed description>",
-            "roles": {{
-                "architect": "<Logic hint>",
-                "translator": "<Syntax hint>",
-                "debugger": "<Debugging hint>"
-            }},
-            "starter_code": "def solve():\\n    # Write code here\\n    pass",
-            "test_cases": [
-                {{"input": [<args>], "expected": <val>}}
-            ]
-        }}
-        """
-        try:
-            response = self.logic_llm.invoke(prompt)
-            clean_json = response.content.replace("```json", "").replace("```", "").strip()
-            return json.loads(clean_json)
-        except Exception as e:
-            print(f"⚠️ Generation Failed: {e}")
-            return {"error": "Failed to generate mission due to AI limits."}
+        return {"error": "AI Offline (Quota Exceeded)"}
 
     def explain_logic_diff(self, user_code: str, mission_objective: str):
-        """
-        Code 'Diff' Explanation: Compares user logic to ideal logic conceptually.
-        """
-        prompt = f"""
-        Compare the STUDENT CODE with the MISSION OBJECTIVE.
-        Do NOT show the full correct code.
-        Generate a "Logical Diff" explaining WHERE their logic diverges from the solution.
-        
-        Format as:
-        - 🔴 Your Logic: <What they did>
-        - 🟢 Required Logic: <What they should do>
-        - 💡 Hint: <A nudging question>
+        return "Comparison unavailable in Offline Mode."
 
-        MISSION: {mission_objective}
-        STUDENT CODE:
-        {user_code}
-        """
+    def log_student_mistake(self, user_code: str, feedback: str, topic: str):
+        if not self.api_ready or self.quota_exhausted or not self.memory_active: 
+            return
         try:
-            response = self.logic_llm.invoke(prompt)
-            return response.content
-        except Exception as e:
-            return "Analysis currently unavailable (Neural Link Overload)."
+            doc = Document(page_content=user_code, metadata={"feedback": feedback, "topic": topic, "type": "mistake"})
+            self.vector_db.add_documents([doc])
+        except Exception:
+            pass 
 
-    # --- MODIFIED CHAT FUNCTION (Crash-Proof) ---
-
-    def chat(self, user_input: str, user_code: str = "", session_id: str = "default_user"):
-        # 1. Retrieve Past Context (RAG) - With Safety Net
-        rag_context = ""
-        if self.memory_active and user_code:
-            try:
-                results = self.vector_db.similarity_search(user_code, k=1)
-                if results:
-                    past_feedback = results[0].metadata.get("feedback", "")
-                    rag_context = f"Context from Past Performance: You previously struggled with similar logic. Remember this advice: '{past_feedback}'"
-            except Exception as e:
-                # If Quota exceeded, just ignore memory and proceed with standard chat
-                print(f"⚠️ Memory Retrieval Skipped: {e}")
-                rag_context = ""
-
-        # 2. Extract Mission Context
-        objective, role, role_description = self._extract_mission_context(user_input)
-        
-        # 3. Build Dynamic System Prompt with RAG
-        dynamic_prompt = f"""
-        {BASE_SYSTEM_PROMPT}
-
-        CURRENT MISSION CONTEXT:
-        MISSION OBJECTIVE: {objective}
-        YOUR CURRENT ROLE ({role}): {role_description}
-        {rag_context}
-
-        You must respond as the designated {role}. Use the current student's code below as context.
-        """
-        
-        # 4. Clean Input
-        clean_input = re.sub(r"MISSION OBJECTIVE:.*?Debugger:.*?$", "", user_input, flags=re.DOTALL).strip()
-        full_human_input = f"[STUDENT'S CODE]:\n{user_code}"
-        if clean_input and not full_human_input.startswith(clean_input):
-            full_human_input = f"{clean_input}\n\n{full_human_input}"
-
-        try:
-            # 5. Invoke AI
-            response = self.conversation.invoke(
-                {"input": full_human_input, "system_prompt": dynamic_prompt},
-                config={"configurable": {"session_id": session_id}}
-            )
-            
-            # 6. Auto-Index (Self-Learning System)
-            if self.memory_active and ("try" in response.lower() or "remember" in response.lower()):
-                self.log_student_mistake(user_code, response, "general")
-
-            return response
-            
-        except Exception as e:
-            return f"⚠️ Neural Link Unstable (AI Rate Limit Reached). Please wait a moment. \nError: {str(e)}"
-
+# Initialize the global instance
 ai_tutor = SocraticAI()
