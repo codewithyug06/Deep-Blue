@@ -39,9 +39,11 @@ const LoginModal = ({ onLogin }) => {
     setLoading(true);
     setError('');
 
+    // DYNAMICALLY CHOOSE ENDPOINT BASED ON TAB
+    const endpoint = activeTab === 'login' ? '/login' : '/register';
+
     try {
-      // Both Login and Register use the same endpoint, backend handles logic
-      const response = await axios.post(`http://127.0.0.1:8000/register`, {
+      const response = await axios.post(`http://127.0.0.1:8000${endpoint}`, {
           username: username,
           password: password
       });
@@ -59,8 +61,9 @@ const LoginModal = ({ onLogin }) => {
 
     } catch (err) {
       console.error(err);
-      if (err.response && err.response.status === 401) {
-          setError('Authentication Failed: Invalid Credentials.');
+      if (err.response) {
+          // Display specific error from backend (e.g., "Username already taken" or "Invalid credentials")
+          setError(err.response.data.detail || 'Authentication Failed.');
       } else {
           setError('Connection Error: Server Unreachable.');
       }

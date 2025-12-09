@@ -47,7 +47,6 @@ class CodeRequest(BaseModel):
     mission_id: int = None
     user_id: int = None 
 
-# --- NEW REQUEST MODELS FOR AI FEATURES ---
 class WeaknessRequest(BaseModel):
     weakness: str
 
@@ -66,23 +65,22 @@ def get_password_hash(password):
 def read_root():
     return {"status": "Deep Blue API is running 🔵"}
 
-# --- DATABASE ENDPOINTS ---
+# --- AUTH ENDPOINTS (SEPARATED) ---
 
 @app.post("/register")
 def register_user(auth: UserAuth, db: Session = Depends(get_db)):
+    """
+    Creates a new user. Fails if username already exists.
+    """
     username = auth.username
     password = auth.password
     
+    # Check if user already exists
     existing = db.query(models.User).filter(models.User.username == username).first()
-    
     if existing:
-        if not verify_password(password, existing.hashed_password):
-            raise HTTPException(status_code=401, detail="Incorrect password")
-        if username.lower() == "pro" and not existing.is_premium:
-            existing.is_premium = True
-            db.commit()
-        return {"message": "Login successful", "user_id": existing.id, "is_premium": existing.is_premium}
+        raise HTTPException(status_code=400, detail="Username already taken.")
     
+    # Create new user
     hashed_pwd = get_password_hash(password)
     is_premium_status = True if username.lower() == "pro" else False
     
@@ -92,6 +90,29 @@ def register_user(auth: UserAuth, db: Session = Depends(get_db)):
     db.refresh(new_user)
     
     return {"message": "Registration successful", "user_id": new_user.id, "is_premium": is_premium_status}
+
+@app.post("/login")
+def login_user(auth: UserAuth, db: Session = Depends(get_db)):
+    """
+    Authenticates an existing user. Fails if user not found or password incorrect.
+    """
+    username = auth.username
+    password = auth.password
+    
+    user = db.query(models.User).filter(models.User.username == username).first()
+    
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+        
+    if not verify_password(password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Secret upgrade check for 'pro' username logic (optional)
+    if username.lower() == "pro" and not user.is_premium:
+        user.is_premium = True
+        db.commit()
+
+    return {"message": "Login successful", "user_id": user.id, "is_premium": user.is_premium}
 
 @app.post("/verify")
 def verify_session():
@@ -123,13 +144,10 @@ def save_progress(user_id: int, mission_id: int, code: str, db: Session = Depend
     db.commit()
     return {"status": "Mission Accomplished & Saved 💾"}
 
-# --- AI & PEDAGOGICAL ENDPOINTS (NEW) ---
+# --- AI & PEDAGOGICAL ENDPOINTS ---
 
 @app.post("/generate-mission")
 async def generate_adaptive_mission(request: WeaknessRequest):
-    """
-    Generates a custom mission based on student weakness (Adaptive Curriculum).
-    """
     try:
         mission_data = ai_tutor.generate_custom_mission(request.weakness)
         return mission_data
@@ -138,9 +156,6 @@ async def generate_adaptive_mission(request: WeaknessRequest):
 
 @app.post("/explain-diff")
 async def explain_code_diff(request: DiffRequest):
-    """
-    Returns a conceptual diff between user code and mission requirements.
-    """
     try:
         explanation = ai_tutor.explain_logic_diff(request.code, request.mission_description)
         return {"diff_explanation": explanation}
@@ -164,7 +179,6 @@ async def execute_code(request: CodeRequest):
             test_results = []
             if request.mission_id:
                 try:
-                    # Logic to load missions and test (Preserved)
                     with open(os.path.join("app", "data", "missions.json"), "r") as f:
                         data = json.load(f)
                     all_missions = []
@@ -212,8 +226,6 @@ async def execute_code(request: CodeRequest):
     finally:
         output_buffer.close()
 
-# --- VISUALIZATION & AI ENGINE ---
-
 @app.post("/analyze")
 async def analyze_code(request: CodeRequest):
     try:
@@ -225,14 +237,12 @@ async def analyze_code(request: CodeRequest):
         visual_data = {"error": str(e), "nodes": [], "links": []}
     
     ai_feedback = ""
-    # Chat uses the updated RAG-enabled chat function
     if request.user_input or request.code:
         try:
             ai_feedback = ai_tutor.chat(request.user_input, user_code=request.code, session_id=request.session_id)
         except Exception as e:
             ai_feedback = f"AI Error: {str(e)}"
 
-    # Haptic Pattern Logic (Preserved)
     vibration_pattern = []
     if request.is_premium:
         if visual_data and "error" in visual_data:
