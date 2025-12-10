@@ -18,7 +18,7 @@ from langchain_core.runnables.history import RunnableWithMessageHistory
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_chroma import Chroma
 from langchain_core.documents import Document
-from google.api_core.exceptions import ResourceExhausted
+from google.api_core.exceptions import ResourceExhausted, InvalidArgument
 
 # Load API Keys
 load_dotenv()
@@ -40,6 +40,34 @@ DOUBT_CLEARING_PROMPT = """
 You are 'Deep Blue', a Python Expert. Answer directly and concisely.
 """
 
+# --- NEW PROMPTS FOR ENHANCEMENTS ---
+ERROR_ANALYSIS_PROMPT = """
+You are 'Deep Blue' System Diagnostics.
+A user's code has critically failed. Analyze the traceback and code.
+
+Output JSON format ONLY:
+{
+    "line": <int (line number where logic failed)>,
+    "explanation": "<string (Sci-fi persona explanation, e.g., 'Logic gate fracture in Sector 4 due to type mismatch.')>"
+}
+"""
+
+ADAPTIVE_MISSION_PROMPT = """
+You are Mission Control.
+The Operative is advancing rapidly. Generate a "Challenge Mode" mission based on the provided topic.
+Return valid JSON matching the mission schema:
+{
+ "id": <random_int>,
+ "title": "<Cool Sci-Fi Title>",
+ "difficulty": "Hard",
+ "description": "<Scenario>",
+ "roles": {"architect": "...", "translator": "...", "debugger": "..."},
+ "starter_code": "...",
+ "solution_keywords": ["..."],
+ "test_cases": [{"input": [...], "expected": ...}]
+}
+"""
+
 # --- 3. ROBUST AI CLASS ---
 class SocraticAI:
     def __init__(self):
@@ -51,18 +79,22 @@ class SocraticAI:
 
         # Initialize LLMs (if key exists)
         if self.api_ready:
-            # max_retries=0 is CRITICAL to prevent server hanging on 429 errors
+            # FIXED: Added convert_system_message_to_human=True
+            # This prevents INVALID_ARGUMENT errors by merging system prompts into user messages
+            # if the API endpoint is strict about role placement.
             self.llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash-preview-09-2025", 
+                model="models/gemini-1.5-flash", 
                 temperature=0.5,
-                max_retries=0, 
-                request_timeout=5
+                google_api_key=self.api_key,
+                convert_system_message_to_human=True,
+                max_retries=1
             )
             self.logic_llm = ChatGoogleGenerativeAI(
-                model="gemini-2.5-flash-preview-09-2025", 
+                model="models/gemini-1.5-flash", 
                 temperature=0.1,
-                max_retries=0,
-                request_timeout=5
+                google_api_key=self.api_key,
+                convert_system_message_to_human=True,
+                max_retries=1
             )
         else:
             self.llm = None
@@ -262,11 +294,16 @@ class SocraticAI:
             error_str = str(e)
             
             # STEP 4: Handle Quota Errors Gracefully
+            # 429 = Quota, 400/InvalidArgument = Bad Request
             if "429" in error_str or "ResourceExhausted" in error_str:
                 print("⚠️ API QUOTA HIT. Enabling Offline Mode.")
-                self.quota_exhausted = True # Trip the circuit breaker for future calls
+                self.quota_exhausted = True 
                 return self._get_mock_response(user_code, user_input)
             
+            if "INVALID_ARGUMENT" in error_str:
+                print(f"❌ Gemini Config Error: {error_str}")
+                return "⚠️ **System Error**: Invalid API configuration. Please check server logs."
+
             # General Error
             print(f"❌ AI Error: {error_str}")
             return f"⚠️ **System Error**: {error_str[:50]}..."
@@ -286,6 +323,44 @@ class SocraticAI:
             self.vector_db.add_documents([doc])
         except Exception:
             pass 
+
+    # --- 7. NEW ENHANCED METHODS ---
+    
+    def analyze_runtime_error(self, code: str, error_trace: str):
+        """
+        Context-Aware Traceback Analysis using Gemini.
+        Returns the line number to highlight and a persona-based explanation.
+        """
+        if not self.api_ready or self.quota_exhausted:
+            return {"line": 0, "explanation": "⚠️ AI Offline: Unable to analyze error diagnostics."}
+        
+        try:
+            prompt = f"{ERROR_ANALYSIS_PROMPT}\n\nCODE:\n{code}\n\nTRACEBACK:\n{error_trace}"
+            response = self.llm.invoke(prompt).content
+            
+            # Sanitize response to ensure valid JSON
+            cleaned = response.replace('```json', '').replace('```', '').strip()
+            return json.loads(cleaned)
+        except Exception as e:
+            print(f"Error Analysis Failed: {e}")
+            return {"line": 0, "explanation": "System Failure: Diagnostics sub-routine interrupted."}
+
+    def create_adaptive_mission(self, topic: str):
+        """
+        Generates a harder mission if the user is progressing too fast.
+        """
+        if not self.api_ready or self.quota_exhausted:
+            return None
+        
+        try:
+            prompt = f"{ADAPTIVE_MISSION_PROMPT}\n\nTOPIC: {topic}"
+            response = self.llm.invoke(prompt).content
+            
+            cleaned = response.replace('```json', '').replace('```', '').strip()
+            return json.loads(cleaned)
+        except Exception as e:
+            print(f"Adaptive Mission Gen Failed: {e}")
+            return None
 
 # Initialize the global instance
 ai_tutor = SocraticAI()

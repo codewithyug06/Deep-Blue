@@ -14,7 +14,9 @@ const Icons = {
   Brain: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
   Lock: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
   Send: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
-  Save: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
+  Save: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>,
+  Mic: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>,
+  Users: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
 };
 
 const highlightCode = (code) => {
@@ -32,8 +34,7 @@ const highlightCode = (code) => {
   });
 };
 
-// --- CHAT INTERFACE ---
-const ChatInterface = ({ messages, onSend, loading }) => {
+const ChatInterface = ({ messages, onSend, loading, onMicClick }) => {
     const [input, setInput] = useState("");
     const scrollRef = useRef(null);
 
@@ -50,7 +51,6 @@ const ChatInterface = ({ messages, onSend, loading }) => {
 
     return (
         <div className="flex flex-col h-full bg-[#0a0f1e]/40 backdrop-blur-md">
-            {/* Chat Header */}
             <div className="p-3 border-b border-white/5 bg-white/5 flex justify-between items-center">
                 <div className="flex items-center gap-2">
                     <div className="p-1 rounded bg-blue-500/20 text-blue-400"><Icons.Brain /></div>
@@ -61,7 +61,6 @@ const ChatInterface = ({ messages, onSend, loading }) => {
                 </div>
             </div>
 
-            {/* Messages Area */}
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative">
                 {messages.length === 0 && (
                     <div className="text-center mt-10 opacity-40">
@@ -91,8 +90,20 @@ const ChatInterface = ({ messages, onSend, loading }) => {
                 <div ref={scrollRef} />
             </div>
 
-            {/* Input Area */}
             <form onSubmit={handleSend} className="p-3 border-t border-white/5 bg-black/20 flex gap-2">
+                <button
+                    type="button"
+                    onClick={() => {
+                        const rec = onMicClick(); 
+                        if(rec) {
+                            rec.onresult = (e) => setInput(e.results[0][0].transcript);
+                        }
+                    }}
+                    className="text-slate-400 hover:text-cyan-400 transition-colors p-2"
+                >
+                    <Icons.Mic />
+                </button>
+
                 <input 
                     type="text" 
                     value={input}
@@ -122,7 +133,13 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   const [activeTab, setActiveTab] = useState("terminal"); 
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const [chatMessages, setChatMessages] = useState([]);
+  const [highlightedLine, setHighlightedLine] = useState(null);
   
+  // MULTIPLAYER STATE
+  const [crewMode, setCrewMode] = useState(false);
+  const [crewRole, setCrewRole] = useState('pilot'); // 'pilot' or 'navigator'
+  const [sessionKey, setSessionKey] = useState('');
+
   const [pyodide, setPyodide] = useState(null);
   const [missionData, setMissionData] = useState(null);
   const [ws, setWs] = useState(null);
@@ -133,9 +150,32 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   const highlightRef = useRef(null);
   const messagesEndRef = useRef(null); 
 
+  // --- VOICE FUNCTIONS ---
+  const speak = (text) => {
+    if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        const voices = window.speechSynthesis.getVoices();
+        const techVoice = voices.find(v => v.name.includes('Google US English') || v.name.includes('Samantha')) || voices[0];
+        utterance.voice = techVoice;
+        utterance.pitch = 0.9;
+        utterance.rate = 1.1;
+        window.speechSynthesis.speak(utterance);
+    }
+  };
+
+  const startListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+        const recognition = new SpeechRecognition();
+        recognition.start();
+        return recognition;
+    }
+    return null;
+  };
+
   // --- INITIALIZE PYODIDE & WEBSOCKET ---
   useEffect(() => {
-    // 1. Load Pyodide
     const loadPyodideEngine = async () => {
       try {
         if (window.loadPyodide) {
@@ -149,16 +189,13 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     };
     loadPyodideEngine();
 
-    // 2. Fetch Mission Data & SAVED PROGRESS
     const initMission = async () => {
         if(missionId) {
             try {
-                // Fetch Mission Details
                 const res = await axios.get('http://127.0.0.1:8000/missions?is_premium=true');
                 const found = res.data.find(m => m.id === missionId);
                 setMissionData(found);
 
-                // Fetch Saved Progress (Work-in-progress code)
                 if (user?.id) {
                     const progressRes = await axios.get(`http://127.0.0.1:8000/get-progress?user_id=${user.id}&mission_id=${missionId}`);
                     if (progressRes.data && progressRes.data.code) {
@@ -173,19 +210,30 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     };
     initMission();
 
-    // 3. Connect WebSocket
     const socket = new WebSocket('ws://127.0.0.1:8000/ws/chat');
     socket.onopen = () => console.log(">> Neural Link Established (WebSocket)");
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        setLoading(false);
-        setChatMessages(prev => [...prev, { role: data.role, text: data.text }]);
+        
+        // Handle Code Sync Updates (Multiplayer)
+        if (data.type === "code_update") {
+            // Only update if I am the Navigator (passive observer)
+            if (crewRole === 'navigator') {
+                setCode(data.code);
+            }
+        } 
+        // Handle Chat
+        else if (data.role) {
+            setLoading(false);
+            setChatMessages(prev => [...prev, { role: data.role, text: data.text }]);
+            if (data.role === 'ai') speak(data.text); 
+        }
     };
     socket.onclose = () => console.log(">> Neural Link Disconnected");
     setWs(socket);
 
     return () => socket.close();
-  }, [missionId]);
+  }, [missionId, crewRole]); // Re-run if role changes
 
   const handleScroll = () => {
     if (textareaRef.current && highlightRef.current) {
@@ -201,13 +249,20 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
               user_id: user.id,
               mission_id: missionId,
               code: code,
-              is_completed: isCompleted // Only mark True if tests passed
+              is_completed: isCompleted 
           });
           
           if (!isCompleted) {
               setOutput(prev => prev + "\n>> System: Draft saved. You can resume later. 💾");
           } else {
               setOutput(prev => prev + "\n>> System: Mission Completed & Status Updated! 🏆");
+              // SUBMIT SCORE (Assuming ~5ms execution as dummy for now)
+              await axios.post('http://localhost:8000/submit-score', {
+                  user_id: user.id,
+                  mission_id: missionId,
+                  execution_time: 0.05, 
+                  memory_usage: 12.5
+              });
           }
       } catch (error) {
           console.error(error);
@@ -215,7 +270,22 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
       }
   };
 
-  // --- CLIENT-SIDE EXECUTION ---
+  const handleRuntimeError = async (errorMsg) => {
+      try {
+          const res = await axios.post('http://localhost:8000/explain-error', {
+              code: code,
+              error_trace: errorMsg
+          });
+          const { line, explanation } = res.data;
+          
+          if (line > 0) setHighlightedLine(line);
+          setChatMessages(prev => [...prev, { role: 'ai', text: explanation }]);
+          speak(explanation); 
+      } catch (e) {
+          console.error("Error analysis failed", e);
+      }
+  };
+
   const handleRun = async () => {
       if (!pyodide) {
           setOutput(">> Engine initializing... please wait.");
@@ -224,7 +294,8 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
       setLoading(true);
       setOutput(">> Executing locally in browser environment...\n");
       setTestResults(null);
-      setExecutionTrace([]); 
+      setExecutionTrace([]);
+      setHighlightedLine(null); 
       setActiveTab("terminal");
 
       try {
@@ -293,17 +364,17 @@ except Exception as e:
               setTestResults(results);
               if(results.length > 0) setActiveTab("tests");
 
-              // --- AUTO COMPLETE LOGIC ---
               const allPassed = results.length > 0 && results.every(r => r.passed);
               if (allPassed) {
                   setOutput(prev => prev + "\n\n>> ✨ ALL SYSTEMS NOMINAL ✨\n>> Mission Completed. Auto-saving status...");
-                  // Pass TRUE to mark as completed
                   await handleSave(true);
               }
           }
 
       } catch (error) {
-          setOutput(prev => prev + `>> Runtime Error:\n${error.message}`);
+          const errMsg = error.message;
+          setOutput(prev => prev + `>> Runtime Error:\n${errMsg}`);
+          await handleRuntimeError(errMsg);
       }
       setLoading(false);
   };
@@ -334,7 +405,8 @@ except Exception as e:
     ws.send(JSON.stringify({
         message: `MISSION OBJECTIVE: ${missionDesc}\n\nAnalyze this logic`,
         code: code,
-        session_id: user.username
+        session_id: user.username,
+        type: "chat"
     }));
   };
 
@@ -345,7 +417,36 @@ except Exception as e:
           ws.send(JSON.stringify({
               message: text,
               code: code, 
-              session_id: user.username
+              session_id: user.username,
+              type: "chat"
+          }));
+      }
+  };
+
+  // --- MULTIPLAYER LOGIC ---
+  const handleJoinCrew = () => {
+      if (!sessionKey) return;
+      setCrewMode(true);
+      // Join Room via WS
+      if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+              type: "join",
+              session_id: sessionKey
+          }));
+      }
+  };
+
+  const handleCodeChange = (newCode) => {
+      // If I am Navigator, I cannot edit code.
+      if (crewRole === 'navigator') return;
+
+      setCode(newCode);
+      // Sync if in crew mode and I am Pilot
+      if (crewMode && crewRole === 'pilot' && ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+              type: "code_sync",
+              session_id: sessionKey,
+              code: newCode
           }));
       }
   };
@@ -360,14 +461,12 @@ except Exception as e:
       window.addEventListener('mouseup', onUp);
   };
 
-  // --- SMART KEY HANDLING (Auto-Close & Indent) ---
   const handleKeyDown = (e) => {
+    if (crewRole === 'navigator') return; // Read-only
     const { selectionStart, selectionEnd, value } = e.target;
-    
     const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
     const closingChars = Object.values(pairs);
 
-    // 1. Tab Handling
     if (e.key === 'Tab') {
       e.preventDefault();
       const newText = value.substring(0, selectionStart) + "    " + value.substring(selectionEnd);
@@ -376,14 +475,12 @@ except Exception as e:
       return;
     }
 
-    // 2. Overwrite Closing Character
     if (selectionStart === selectionEnd && closingChars.includes(e.key) && value[selectionStart] === e.key) {
         e.preventDefault();
         setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1; }, 0);
         return;
     }
 
-    // 3. Auto-Closing Pairs
     if (pairs[e.key]) {
       e.preventDefault();
       const closing = pairs[e.key];
@@ -403,7 +500,6 @@ except Exception as e:
       return;
     }
 
-    // 4. Backspace (Smart Delete)
     if (e.key === 'Backspace' && selectionStart === selectionEnd) {
         const charBefore = value[selectionStart - 1];
         const charAfter = value[selectionStart];
@@ -416,37 +512,16 @@ except Exception as e:
         }
     }
 
-    // 5. Auto-Indentation on Enter
     if (e.key === 'Enter') {
       e.preventDefault();
       const textBeforeCursor = value.substring(0, selectionStart);
       const lines = textBeforeCursor.split('\n');
       const currentLine = lines[lines.length - 1];
-      
       const match = currentLine.match(/^(\s*)/);
       let indent = match ? match[1] : '';
-      
-      // If line ends with `:`, `{` or `[`, add 4 spaces
       if (currentLine.trimEnd().endsWith(':') || currentLine.trimEnd().endsWith('{') || currentLine.trimEnd().endsWith('[')) {
         indent += "    ";
       }
-      
-      // Smart split for brackets
-      const charBefore = value[selectionStart - 1];
-      const charAfter = value[selectionStart];
-      const isBetweenBrackets = (charBefore === '{' && charAfter === '}') || 
-                                (charBefore === '[' && charAfter === ']') || 
-                                (charBefore === '(' && charAfter === ')');
-      
-      if (isBetweenBrackets) {
-          const parentIndent = match ? match[1] : '';
-          const innerIndent = parentIndent + "    ";
-          const newText = value.substring(0, selectionStart) + '\n' + innerIndent + '\n' + parentIndent + value.substring(selectionEnd);
-          setCode(newText);
-          setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1 + innerIndent.length; }, 0);
-          return;
-      }
-
       const newText = value.substring(0, selectionStart) + '\n' + indent + value.substring(selectionEnd);
       setCode(newText);
       setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1 + indent.length; }, 0);
@@ -460,7 +535,6 @@ except Exception as e:
       {/* LEFT: EDITOR & TERMINAL */}
       <div className="flex flex-1 flex-col min-w-0 bg-[#0a0f1e]/40 backdrop-blur-sm relative border-r border-white/5">
             
-            {/* Header / Toolbar - Z-INDEX INCREASED TO 50 */}
             <div className="relative z-50 min-h-[4.5rem] px-6 py-4 border-b border-white/5 flex justify-between items-start shrink-0 bg-[#0a0f1e]/90 shadow-xl">
                 <div className="flex flex-col gap-2 min-w-0">
                     <button 
@@ -477,36 +551,72 @@ except Exception as e:
                     </div>
                 </div>
                 
-                <div className="flex items-center gap-3 mt-8">
-                    {/* MANUAL SAVE BUTTON (Sends isCompleted = False) */}
-                    <button onClick={() => handleSave(false)} disabled={loading} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
-                        <Icons.Save />
-                        <span>Save</span>
-                    </button>
+                <div className="flex flex-col items-end gap-2">
+                    {/* BRIDGE CREW CONTROLS */}
+                    {!crewMode ? (
+                        <div className="flex items-center bg-white/5 rounded-lg p-1">
+                            <input 
+                                type="text" 
+                                placeholder="Session ID" 
+                                value={sessionKey} 
+                                onChange={(e) => setSessionKey(e.target.value)}
+                                className="bg-transparent border-none text-xs text-white w-20 px-2 focus:outline-none placeholder-slate-600"
+                            />
+                            <select value={crewRole} onChange={(e) => setCrewRole(e.target.value)} className="bg-black/40 text-[10px] text-slate-300 border-none rounded p-1 mr-1">
+                                <option value="pilot">Pilot</option>
+                                <option value="navigator">Nav</option>
+                            </select>
+                            <button onClick={handleJoinCrew} className="text-cyan-400 hover:text-white p-1"><Icons.Users /></button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
+                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
+                            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">BRIDGE: {sessionKey} ({crewRole})</span>
+                        </div>
+                    )}
 
-                    <button onClick={handleRun} disabled={loading} className="px-5 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]">
-                        {loading ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-emerald-400 border-t-transparent"></span> : <Icons.Run />}
-                        <span>Execute</span>
-                    </button>
-                    <button onClick={handleAnalyze} disabled={loading} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_20px_rgba(37,99,235,0.5)]">
-                        <Icons.Analyze />
-                        <span>Analyze</span>
-                    </button>
+                    <div className="flex items-center gap-3">
+                        <button onClick={() => handleSave(false)} disabled={loading} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
+                            <Icons.Save />
+                            <span>Save</span>
+                        </button>
+
+                        <button onClick={handleRun} disabled={loading || crewRole === 'navigator'} className={`px-5 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)] ${crewRole === 'navigator' ? 'opacity-50 cursor-not-allowed' : ''}`}>
+                            {loading ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-emerald-400 border-t-transparent"></span> : <Icons.Run />}
+                            <span>Execute</span>
+                        </button>
+                        <button onClick={handleAnalyze} disabled={loading} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_20px_rgba(37,99,235,0.5)]">
+                            <Icons.Analyze />
+                            <span>Analyze</span>
+                        </button>
+                    </div>
                 </div>
             </div>
             
-            {/* Editor Area */}
             <div className="flex-grow relative flex flex-col group z-0">
                 <div className="flex-1 relative">
                     <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#050914] border-r border-white/5 text-slate-600 text-xs font-mono text-right pr-3 pt-6 select-none leading-6 z-10 hidden md:block">
-                        {code.split('\n').map((_, i) => <div key={i} className="opacity-50">{i + 1}</div>)}
+                        {code.split('\n').map((_, i) => (
+                            <div key={i} className={`opacity-50 ${highlightedLine === i + 1 ? 'text-red-500 font-bold bg-red-500/10' : ''}`}>
+                                {i + 1}
+                            </div>
+                        ))}
                     </div>
                     <pre ref={highlightRef} className="absolute inset-0 w-full h-full p-6 md:pl-16 font-mono text-sm leading-6 pointer-events-none whitespace-pre-wrap overflow-hidden z-0" dangerouslySetInnerHTML={{ __html: highlightCode(code) + '<br/>' }} />
-                    <textarea ref={textareaRef} onScroll={handleScroll} className="absolute inset-0 w-full h-full bg-transparent p-6 md:pl-16 font-mono text-sm leading-6 resize-none focus:outline-none text-transparent caret-cyan-400 selection:bg-blue-500/30 z-10" style={{ color: 'transparent' }} value={code} onChange={(e) => setCode(e.target.value)} onKeyDown={handleKeyDown} spellCheck="false" />
+                    <textarea 
+                        ref={textareaRef} 
+                        onScroll={handleScroll} 
+                        className={`absolute inset-0 w-full h-full bg-transparent p-6 md:pl-16 font-mono text-sm leading-6 resize-none focus:outline-none text-transparent caret-cyan-400 selection:bg-blue-500/30 z-10 ${crewRole === 'navigator' ? 'cursor-not-allowed' : ''}`}
+                        style={{ color: 'transparent' }} 
+                        value={code} 
+                        onChange={(e) => handleCodeChange(e.target.value)} 
+                        onKeyDown={handleKeyDown} 
+                        spellCheck="false" 
+                        readOnly={crewRole === 'navigator'} // Navigator cannot type
+                    />
                 </div>
             </div>
           
-            {/* Terminal Panel */}
             <div className="h-64 bg-[#050914] border-t border-white/5 flex flex-col shrink-0 relative z-20">
                 <div className="flex border-b border-white/5 bg-[#020617]">
                     {['terminal', 'tests'].map(tab => (
@@ -567,7 +677,7 @@ except Exception as e:
           </div>
           
           <div className="flex-1 min-h-0">
-              <ChatInterface messages={chatMessages} onSend={handleChatSend} loading={loading} />
+              <ChatInterface messages={chatMessages} onSend={handleChatSend} loading={loading} onMicClick={startListening} />
           </div>
       </div>
     </div>

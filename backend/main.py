@@ -3,6 +3,7 @@ from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from passlib.context import CryptContext
+from sqlalchemy import desc
 import json
 import os
 import io
@@ -10,6 +11,7 @@ import contextlib
 import traceback
 import re
 import asyncio
+from datetime import datetime
 
 # --- INTERNAL IMPORTS ---
 from app.engine.rag_agent import ai_tutor
@@ -47,7 +49,11 @@ class CodeRequest(BaseModel):
     is_premium: bool = False
     mission_id: int = None
     user_id: int = None
-    is_completed: bool = False # NEW: Flag to indicate if tests passed
+    is_completed: bool = False
+
+class ErrorAnalysisRequest(BaseModel):
+    code: str
+    error_trace: str
 
 class WeaknessRequest(BaseModel):
     weakness: str
@@ -55,6 +61,12 @@ class WeaknessRequest(BaseModel):
 class DiffRequest(BaseModel):
     code: str
     mission_description: str
+
+class ScoreRequest(BaseModel):
+    user_id: int
+    mission_id: int
+    execution_time: float
+    memory_usage: float
 
 # --- HELPER FUNCTIONS ---
 def verify_password(plain_password, hashed_password):
@@ -67,54 +79,106 @@ def get_password_hash(password):
 def read_root():
     return {"status": "Deep Blue API is running 🔵"}
 
-# --- WEBSOCKET CONNECTION MANAGER ---
+# --- WEBSOCKET CONNECTION MANAGER (ENHANCED FOR MULTIPLAYER) ---
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: list[WebSocket] = []
+        # Store connections by session_id (room)
+        # Structure: { "session_id": [WebSocket1, WebSocket2, ...] }
+        self.active_rooms: dict[str, list[WebSocket]] = {}
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, session_id: str):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        if session_id not in self.active_rooms:
+            self.active_rooms[session_id] = []
+        self.active_rooms[session_id].append(websocket)
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+    def disconnect(self, websocket: WebSocket, session_id: str):
+        if session_id in self.active_rooms:
+            if websocket in self.active_rooms[session_id]:
+                self.active_rooms[session_id].remove(websocket)
+            if not self.active_rooms[session_id]:
+                del self.active_rooms[session_id]
 
     async def send_personal_message(self, message: str, websocket: WebSocket):
         await websocket.send_text(message)
 
+    async def broadcast_to_room(self, message: str, session_id: str, sender: WebSocket):
+        # Broadcast to everyone in the room EXCEPT the sender
+        if session_id in self.active_rooms:
+            for connection in self.active_rooms[session_id]:
+                if connection != sender:
+                    await connection.send_text(message)
+
 manager = ConnectionManager()
 
-# --- WEBSOCKET ENDPOINT (Real-time AI Chat) ---
+# --- WEBSOCKET ENDPOINT (Chat + Multiplayer Sync) ---
 @app.websocket("/ws/chat")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    # Initial connection doesn't have a session ID yet, wait for first message or param
+    # For simplicity, we'll accept immediately and expect session_id in payload
+    # In a real app, query params are better: /ws/chat?session_id=...
+    # Here we adapt to the existing architecture.
+    
+    await websocket.accept()
+    current_session_id = "default" # Fallback
+    
     try:
         while True:
             data = await websocket.receive_text()
             payload = json.loads(data)
             
-            user_input = payload.get("message", "")
-            user_code = payload.get("code", "")
+            # Extract Metadata
+            msg_type = payload.get("type", "chat") # 'chat', 'code_sync', 'join'
             session_id = payload.get("session_id", "default")
             
-            # Non-blocking AI call (Simulated for async flow)
-            response = await asyncio.to_thread(
-                ai_tutor.chat, user_input, user_code, session_id
-            )
-            
-            await manager.send_personal_message(json.dumps({
-                "role": "ai", 
-                "text": response
-            }), websocket)
-            
+            # Manage Room Registration manually since we accepted generic connection
+            if session_id != current_session_id:
+                # Switching rooms (or initial join)
+                if websocket in manager.active_rooms.get(current_session_id, []):
+                    manager.active_rooms[current_session_id].remove(websocket)
+                
+                if session_id not in manager.active_rooms:
+                    manager.active_rooms[session_id] = []
+                manager.active_rooms[session_id].append(websocket)
+                current_session_id = session_id
+
+            # --- 1. CODE SYNC (MULTIPLAYER) ---
+            if msg_type == "code_sync":
+                # Broadcast code changes to other "Crew Members" (Navigator/Pilot)
+                await manager.broadcast_to_room(json.dumps({
+                    "type": "code_update",
+                    "code": payload.get("code")
+                }), session_id, websocket)
+
+            # --- 2. AI CHAT ---
+            elif msg_type == "chat":
+                user_input = payload.get("message", "")
+                user_code = payload.get("code", "")
+                
+                # Non-blocking AI call
+                response = await asyncio.to_thread(
+                    ai_tutor.chat, user_input, user_code, session_id
+                )
+                
+                # Reply only to sender
+                await websocket.send_text(json.dumps({
+                    "role": "ai", 
+                    "text": response
+                }))
+
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        if current_session_id in manager.active_rooms:
+             if websocket in manager.active_rooms[current_session_id]:
+                manager.active_rooms[current_session_id].remove(websocket)
     except Exception as e:
         print(f"WebSocket Error: {e}")
-        await manager.send_personal_message(json.dumps({
-            "role": "ai", 
-            "text": ">> CONNECTION INTERRUPTED: Signal Lost."
-        }), websocket)
+        try:
+            await websocket.send_text(json.dumps({
+                "role": "ai", 
+                "text": ">> CONNECTION INTERRUPTED: Signal Lost."
+            }))
+        except:
+            pass
 
 # --- AUTH ENDPOINTS ---
 
@@ -147,14 +211,9 @@ def login_user(auth: UserAuth, db: Session = Depends(get_db)):
         db.commit()
     return {"message": "Login successful", "user_id": user.id, "is_premium": user.is_premium}
 
-# --- PROGRESS ENDPOINT (UPDATED LOGIC) ---
+# --- PROGRESS ENDPOINT ---
 @app.post("/save-progress")
 def save_progress(request: CodeRequest, db: Session = Depends(get_db)):
-    """
-    Saves user progress.
-    Only marks as 'is_completed' if explicitly requested (when tests pass).
-    Otherwise, just saves the code draft.
-    """
     user_id = request.user_id
     mission_id = request.mission_id
     code = request.code
@@ -167,14 +226,13 @@ def save_progress(request: CodeRequest, db: Session = Depends(get_db)):
     
     if existing:
         existing.code_solution = code
-        # Only upgrade status to True, never downgrade to False if already completed
         if completed_status:
             existing.is_completed = True
     else:
         progress = models.UserProgress(
             user_id=user_id, 
             mission_id=mission_id, 
-            is_completed=completed_status, # False for manual save, True for auto-complete
+            is_completed=completed_status, 
             code_solution=code
         )
         db.add(progress)
@@ -182,23 +240,68 @@ def save_progress(request: CodeRequest, db: Session = Depends(get_db)):
     db.commit()
     return {"status": "Progress Saved 💾"}
 
-# --- GET PROGRESS ENDPOINT (NEW) ---
 @app.get("/get-progress")
 def get_progress(user_id: int, mission_id: int, db: Session = Depends(get_db)):
-    """
-    Fetches the saved code for a specific user and mission.
-    """
     progress = db.query(models.UserProgress).filter_by(user_id=user_id, mission_id=mission_id).first()
     if progress:
         return {"code": progress.code_solution, "is_completed": progress.is_completed}
     return {"code": None, "is_completed": False}
 
-# --- EXECUTION ENGINE (DEPRECATED/LEGACY) ---
+# --- NEW: LEADERBOARD ENDPOINTS ---
+
+@app.post("/submit-score")
+def submit_score(request: ScoreRequest, db: Session = Depends(get_db)):
+    """
+    Submits a new high score entry.
+    """
+    user = db.query(models.User).filter(models.User.id == request.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    new_score = models.Leaderboard(
+        mission_id=request.mission_id,
+        user_id=request.user_id,
+        username=user.username,
+        execution_time=request.execution_time,
+        memory_usage=request.memory_usage,
+        timestamp=datetime.now().isoformat()
+    )
+    db.add(new_score)
+    db.commit()
+    return {"status": "Score Uploaded to Global Net 🌍"}
+
+@app.get("/leaderboard/{mission_id}")
+def get_leaderboard(mission_id: int, db: Session = Depends(get_db)):
+    """
+    Returns top 10 scores for a mission, sorted by execution time.
+    """
+    scores = db.query(models.Leaderboard)\
+        .filter(models.Leaderboard.mission_id == mission_id)\
+        .order_by(models.Leaderboard.execution_time.asc())\
+        .limit(10)\
+        .all()
+    return scores
+
+# --- NEW ENHANCEMENTS ENDPOINTS ---
+
+@app.post("/explain-error")
+async def explain_error_endpoint(request: ErrorAnalysisRequest):
+    analysis = ai_tutor.analyze_runtime_error(request.code, request.error_trace)
+    return analysis
+
+@app.post("/adaptive-mission")
+async def get_adaptive_mission(request: WeaknessRequest):
+    mission = ai_tutor.create_adaptive_mission(request.weakness)
+    if mission:
+        return mission
+    raise HTTPException(status_code=500, detail="Failed to generate mission")
+
+# --- EXECUTION & ANALYZE ---
+
 @app.post("/execute")
 async def execute_code_legacy(request: CodeRequest):
     return {"output": "⚠️ Server-side execution is disabled. Please use the client-side runner."}
 
-# --- ANALYZE ENDPOINT (For 3D Visuals) ---
 @app.post("/analyze")
 async def analyze_code(request: CodeRequest):
     try:

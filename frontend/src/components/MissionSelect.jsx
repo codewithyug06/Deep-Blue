@@ -5,24 +5,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 // --- NEON FLUX SEARCH BAR ---
 const NeonSearchBar = ({ value, onChange, placeholder = "Search database..." }) => (
     <div className="relative w-full max-w-lg mx-auto group z-20 mb-10">
-      
-      {/* 1. Outer Glow Container (The "Neon" Effect) */}
       <div className="absolute -inset-[3px] bg-gradient-to-r from-purple-600 via-cyan-500 to-blue-600 rounded-full opacity-40 blur-md group-focus-within:opacity-100 group-focus-within:blur-xl transition-all duration-500"></div>
-      
-      {/* 2. Sharp Border Line */}
       <div className="absolute -inset-[1px] bg-gradient-to-r from-purple-500 via-cyan-400 to-blue-500 rounded-full opacity-60 group-focus-within:opacity-100 transition-opacity duration-300"></div>
-
-      {/* 3. The Input Box (Dark Core) */}
       <div className="relative flex items-center bg-[#020617] rounded-full p-1.5 h-14 shadow-2xl">
-        
-        {/* Search Icon */}
         <div className="pl-5 pr-3 text-slate-400 group-focus-within:text-cyan-400 transition-colors duration-300">
           <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </div>
-
-        {/* Input */}
         <input
           type="text"
           value={value}
@@ -30,19 +20,70 @@ const NeonSearchBar = ({ value, onChange, placeholder = "Search database..." }) 
           placeholder={placeholder}
           className="w-full bg-transparent border-none text-white text-base focus:outline-none focus:ring-0 placeholder-slate-500 font-medium tracking-wide h-full"
         />
-
-        {/* Filter/Command Icon (Right Side) */}
-        <div className="pr-5 pl-3 text-slate-500 group-focus-within:text-purple-400 transition-colors duration-300">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-            </svg>
-        </div>
       </div>
     </div>
 );
 
+// --- LEADERBOARD COMPONENT ---
+const LeaderboardModal = ({ missionId, onClose }) => {
+    const [scores, setScores] = useState([]);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        if (!missionId) return;
+        axios.get(`http://localhost:8000/leaderboard/${missionId}`)
+            .then(res => {
+                setScores(res.data);
+                setLoading(false);
+            })
+            .catch(() => setLoading(false));
+    }, [missionId]);
+
+    return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4" onClick={onClose}>
+            <motion.div 
+                initial={{ scale: 0.9, opacity: 0 }} 
+                animate={{ scale: 1, opacity: 1 }} 
+                onClick={(e) => e.stopPropagation()}
+                className="bg-[#0a0f1e] border border-cyan-500/30 rounded-2xl w-full max-w-md overflow-hidden shadow-[0_0_50px_rgba(6,182,212,0.2)]"
+            >
+                <div className="p-4 border-b border-white/10 flex justify-between items-center bg-cyan-900/20">
+                    <h3 className="text-cyan-400 font-bold uppercase tracking-widest text-sm">Top Commanders</h3>
+                    <button onClick={onClose} className="text-slate-400 hover:text-white">&times;</button>
+                </div>
+                <div className="p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
+                    {loading ? (
+                        <div className="text-center py-8 text-slate-500 text-xs animate-pulse">FETCHING DATA...</div>
+                    ) : scores.length === 0 ? (
+                        <div className="text-center py-8 text-slate-500 text-xs">NO RECORDS FOUND</div>
+                    ) : (
+                        <table className="w-full text-xs text-left">
+                            <thead>
+                                <tr className="text-slate-500 border-b border-white/5">
+                                    <th className="pb-2">Rank</th>
+                                    <th className="pb-2">Operative</th>
+                                    <th className="pb-2 text-right">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-white/5">
+                                {scores.map((s, i) => (
+                                    <tr key={s.id} className="text-slate-300">
+                                        <td className="py-2 pl-1 font-mono text-cyan-500">#{i + 1}</td>
+                                        <td className="py-2 font-bold">{s.username}</td>
+                                        <td className="py-2 text-right font-mono text-emerald-400">{s.execution_time.toFixed(4)}s</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </motion.div>
+        </div>
+    );
+};
+
 // --- HOLOGRAPHIC CARD ---
-const MissionCard = ({ mission, onClick }) => {
+const MissionCard = ({ mission, onClick, onViewLeaderboard }) => {
   const [rotation, setRotation] = useState({ x: 0, y: 0 });
 
   const handleMouseMove = (e) => {
@@ -57,10 +98,6 @@ const MissionCard = ({ mission, onClick }) => {
     setRotation({ x: rotateX, y: rotateY });
   };
 
-  const handleMouseLeave = () => {
-    setRotation({ x: 0, y: 0 });
-  };
-
   const difficultyColors = {
     Easy: 'from-emerald-500 to-teal-400',
     Medium: 'from-amber-500 to-orange-400',
@@ -72,34 +109,32 @@ const MissionCard = ({ mission, onClick }) => {
   return (
     <motion.div 
       layout
-      initial={{ opacity: 0, scale: 0.9 }}
-      animate={{ opacity: 1, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.9 }}
       className="perspective-1000"
     >
       <div 
-        onClick={() => onClick(mission)}
         onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
+        onMouseLeave={() => setRotation({ x: 0, y: 0 })}
         style={{ 
             transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(1, 1, 1)`,
             transition: 'transform 0.1s ease-out' 
         }}
-        className="group relative h-64 cursor-pointer rounded-2xl p-[1px] bg-gradient-to-br from-white/10 to-transparent hover:from-cyan-500/50 hover:to-blue-600/50 transition-colors duration-500"
+        className="group relative h-64 rounded-2xl p-[1px] bg-gradient-to-br from-white/10 to-transparent hover:from-cyan-500/50 hover:to-blue-600/50 transition-colors duration-500"
       >
         <div className="relative h-full bg-[#0f172a]/90 backdrop-blur-xl rounded-2xl p-6 flex flex-col justify-between overflow-hidden shadow-2xl">
-            
-            {/* Ambient Glow */}
             <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${accentGradient} opacity-10 rounded-full blur-[50px] group-hover:opacity-20 transition-opacity`}></div>
 
-            <div>
+            <div onClick={() => onClick(mission)} className="cursor-pointer">
                 <div className="flex justify-between items-start mb-4">
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-white/5 border border-white/10 ${mission.difficulty === 'Hard' ? 'text-red-400' : 'text-slate-400'} group-hover:text-white group-hover:bg-white/10 transition-colors`}>
                         {mission.difficulty}
                     </span>
-                    <svg className="w-5 h-5 text-slate-600 group-hover:text-cyan-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                    </svg>
+                    <button 
+                        onClick={(e) => { e.stopPropagation(); onViewLeaderboard(mission.id); }}
+                        className="text-slate-600 hover:text-amber-400 transition-colors z-20"
+                        title="View Leaderboard"
+                    >
+                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" /></svg>
+                    </button>
                 </div>
                 
                 <h3 className="text-xl font-bold text-white mb-2 line-clamp-1 group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-cyan-300 transition-all">
@@ -110,7 +145,7 @@ const MissionCard = ({ mission, onClick }) => {
                 </p>
             </div>
 
-            <div className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5">
+            <div onClick={() => onClick(mission)} className="flex items-center gap-3 mt-4 pt-4 border-t border-white/5 cursor-pointer">
                 <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                     <div className={`h-full w-2/3 bg-gradient-to-r ${accentGradient} opacity-50 group-hover:opacity-100 transition-opacity`}></div>
                 </div>
@@ -127,6 +162,7 @@ const MissionSelect = ({ onSelectMission }) => {
   const [activeFilter, setActiveFilter] = useState('All'); 
   const [searchTerm, setSearchTerm] = useState(''); 
   const [loading, setLoading] = useState(true);
+  const [leaderboardMission, setLeaderboardMission] = useState(null); // ID for modal
 
   useEffect(() => {
     axios.get('http://127.0.0.1:8000/missions?is_premium=true') 
@@ -152,10 +188,18 @@ const MissionSelect = ({ onSelectMission }) => {
     return result;
   }, [allMissions, activeFilter, searchTerm]);
 
-
   return (
     <div>
-      {/* --- HERO HEADER --- */}
+      {/* --- LEADERBOARD MODAL --- */}
+      <AnimatePresence>
+        {leaderboardMission && (
+            <LeaderboardModal 
+                missionId={leaderboardMission} 
+                onClose={() => setLeaderboardMission(null)} 
+            />
+        )}
+      </AnimatePresence>
+
       <div className="relative mb-8 py-10 text-center">
         <h2 className="text-6xl md:text-8xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white via-slate-200 to-slate-600 tracking-tighter mb-4 drop-shadow-2xl">
             MISSIONS
@@ -164,10 +208,8 @@ const MissionSelect = ({ onSelectMission }) => {
             Select a simulation module to begin your neural training sequence.
         </p>
         
-        {/* NEON SEARCH BAR */}
         <NeonSearchBar value={searchTerm} onChange={setSearchTerm} placeholder="Search mission protocols..." />
 
-        {/* Filter Tabs */}
         <div className="flex justify-center gap-2 mt-8">
             {['All', 'Easy', 'Medium', 'Hard'].map(filter => (
                 <button
@@ -185,7 +227,6 @@ const MissionSelect = ({ onSelectMission }) => {
         </div>
       </div>
 
-      {/* --- GRID --- */}
       {loading ? (
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-2 border-white/20 border-t-white rounded-full animate-spin"></div></div>
       ) : (
@@ -193,7 +234,12 @@ const MissionSelect = ({ onSelectMission }) => {
             <AnimatePresence>
                 {filteredMissions.length > 0 ? (
                     filteredMissions.map((mission) => (
-                        <MissionCard key={mission.id} mission={mission} onClick={onSelectMission} />
+                        <MissionCard 
+                            key={mission.id} 
+                            mission={mission} 
+                            onClick={onSelectMission} 
+                            onViewLeaderboard={setLeaderboardMission} // Pass handler
+                        />
                     ))
                 ) : (
                     <motion.div 
