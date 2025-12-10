@@ -16,13 +16,13 @@ const Icons = {
   Send: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
   Save: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>,
   Mic: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>,
-  Users: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+  Users: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
+  Ghost: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 18A8 8 0 0012 2a8 8 0 00-8 8v8a8 8 0 0016 0h-4zm-4-4v-4a4 4 0 00-8 0v4h8z" /></svg>
 };
 
 const highlightCode = (code) => {
   if (!code) return "";
   const escape = (str) => str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  // Simple syntax highlighter logic
   const tokenRegex = /(#.*)|(["'](?:(?=(\\?))\3.)*?\2)|(\b\d+\b)|(\b(?:def|class|return|if|else|elif|while|for|in|pass|import|from|try|except|break|continue|and|or|not|is|None|True|False)\b)|(\b(?:print|len|range|sum|max|min|list|dict|str|int|float|bool|abs|round)\b)|([\s\S])/g;
   return code.replace(tokenRegex, (match, comment, string, number, keyword, builtin, other) => {
       if (comment) return `<span style="color: #64748b; font-style: italic;">${escape(comment)}</span>`;
@@ -66,7 +66,7 @@ const ChatInterface = ({ messages, onSend, loading, onMicClick }) => {
                     <div className="text-center mt-10 opacity-40">
                         <div className="text-3xl mb-2 grayscale">👾</div>
                         <p className="text-[10px] uppercase tracking-widest">Neural Link Offline</p>
-                        <p className="text-xs">"Analyze" code to initiate handshake.</p>
+                        <p className="p-xs">"Analyze" code to initiate handshake.</p>
                     </div>
                 )}
                 {messages.map((msg, idx) => (
@@ -134,12 +134,15 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const [chatMessages, setChatMessages] = useState([]);
   const [highlightedLine, setHighlightedLine] = useState(null);
+  const [glitch, setGlitch] = useState(false);
   
-  // MULTIPLAYER STATE
+  // --- GHOST / MULTIPLAYER STATE ---
   const [crewMode, setCrewMode] = useState(false);
-  const [crewRole, setCrewRole] = useState('pilot'); // 'pilot' or 'navigator'
+  const [crewRole, setCrewRole] = useState('pilot');
   const [sessionKey, setSessionKey] = useState('');
-
+  const [ghostRecording, setGhostRecording] = useState(null); // Stores last successful trace
+  const [showGhostButton, setShowGhostButton] = useState(false); // Show Replay button
+  
   const [pyodide, setPyodide] = useState(null);
   const [missionData, setMissionData] = useState(null);
   const [ws, setWs] = useState(null);
@@ -174,7 +177,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     return null;
   };
 
-  // --- INITIALIZE PYODIDE & WEBSOCKET ---
+  // --- INITIALIZE PYODIDE, WS, AND LOAD GHOST ---
   useEffect(() => {
     const loadPyodideEngine = async () => {
       try {
@@ -202,6 +205,14 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
                         setCode(progressRes.data.code);
                         setOutput(">> Saved progress loaded successfully.\n");
                     }
+                    
+                    // NEW: Load Ghost Recording from LocalStorage
+                    const ghost = localStorage.getItem(`ghost_${user.id}_${missionId}`);
+                    if (ghost) {
+                        setGhostRecording(JSON.parse(ghost));
+                        setShowGhostButton(true);
+                        setOutput(prev => prev + ">> Ghost trace data loaded.\n");
+                    }
                 }
             } catch (e) {
                 console.error("Failed to load mission data", e);
@@ -214,16 +225,11 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     socket.onopen = () => console.log(">> Neural Link Established (WebSocket)");
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
-        
-        // Handle Code Sync Updates (Multiplayer)
         if (data.type === "code_update") {
-            // Only update if I am the Navigator (passive observer)
             if (crewRole === 'navigator') {
                 setCode(data.code);
             }
-        } 
-        // Handle Chat
-        else if (data.role) {
+        } else if (data.role) {
             setLoading(false);
             setChatMessages(prev => [...prev, { role: data.role, text: data.text }]);
             if (data.role === 'ai') speak(data.text); 
@@ -233,7 +239,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     setWs(socket);
 
     return () => socket.close();
-  }, [missionId, crewRole]); // Re-run if role changes
+  }, [missionId, crewRole]);
 
   const handleScroll = () => {
     if (textareaRef.current && highlightRef.current) {
@@ -241,7 +247,6 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     }
   };
 
-  // --- SAVE PROGRESS (UPDATED) ---
   const handleSave = async (isCompleted = false) => {
       if (!user || !missionId) return;
       try {
@@ -255,8 +260,15 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
           if (!isCompleted) {
               setOutput(prev => prev + "\n>> System: Draft saved. You can resume later. 💾");
           } else {
+              // Only record GHOST on successful completion
+              // The trace list should ideally contain line numbers AND time delta from start of execution.
+              // We'll approximate this by just recording line numbers with a timestamp.
+              const newGhost = executionTrace.map(lineNo => ({ timestamp: Date.now(), line: lineNo }));
+              localStorage.setItem(`ghost_${user.id}_${missionId}`, JSON.stringify(newGhost));
+              setGhostRecording(newGhost);
+              setShowGhostButton(true);
+              
               setOutput(prev => prev + "\n>> System: Mission Completed & Status Updated! 🏆");
-              // SUBMIT SCORE (Assuming ~5ms execution as dummy for now)
               await axios.post('http://localhost:8000/submit-score', {
                   user_id: user.id,
                   mission_id: missionId,
@@ -271,6 +283,25 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   };
 
   const handleRuntimeError = async (errorMsg) => {
+      setGlitch(true);
+      if (navigator.vibrate) navigator.vibrate([100, 50, 100]); 
+      setTimeout(() => setGlitch(false), 800);
+
+      // CODE SONIFICATION: Error Sound
+      if ('AudioContext' in window) {
+          const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          oscillator.type = 'sawtooth';
+          oscillator.frequency.setValueAtTime(50, audioContext.currentTime); 
+          const gainNode = audioContext.createGain();
+          gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.5);
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          oscillator.start();
+          oscillator.stop(audioContext.currentTime + 0.5);
+      }
+
       try {
           const res = await axios.post('http://localhost:8000/explain-error', {
               code: code,
@@ -366,8 +397,29 @@ except Exception as e:
 
               const allPassed = results.length > 0 && results.every(r => r.passed);
               if (allPassed) {
+                  // CODE SONIFICATION: Success Sound
+                  if ('AudioContext' in window) {
+                      const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                      const oscillator = audioContext.createOscillator();
+                      oscillator.type = 'triangle';
+                      oscillator.frequency.setValueAtTime(440, audioContext.currentTime);
+                      const gainNode = audioContext.createGain();
+                      gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
+                      oscillator.connect(gainNode);
+                      gainNode.connect(audioContext.destination);
+                      oscillator.start();
+                      oscillator.stop(audioContext.currentTime + 0.2);
+                  }
+                  
                   setOutput(prev => prev + "\n\n>> ✨ ALL SYSTEMS NOMINAL ✨\n>> Mission Completed. Auto-saving status...");
                   await handleSave(true);
+              } else {
+                  // FAIL STATE: Trigger Glitch & Vibrate
+                  setGlitch(true);
+                  if (navigator.vibrate) navigator.vibrate(200); 
+                  setTimeout(() => setGlitch(false), 500);
+
+                  await handleRuntimeError("Test cases failed.");
               }
           }
 
@@ -394,10 +446,15 @@ except Exception as e:
     setChatMessages(prev => [...prev, { role: 'user', text: "Start Socratic Analysis Protocol..." }]);
     
     try {
-        const visualRes = await axios.post('http://127.0.0.1:8000/analyze', {
+        const response = await axios.post('http://127.0.0.1:8000/analyze', {
             code: code, is_premium: isPremium 
         });
-        setVisualData(visualRes.data.visual_data);
+        setVisualData(response.data.visual_data);
+        
+        if (response.data.vibration_pattern && navigator.vibrate) {
+            navigator.vibrate(response.data.vibration_pattern);
+        }
+
     } catch (e) {
         console.error("Visuals failed");
     }
@@ -423,11 +480,9 @@ except Exception as e:
       }
   };
 
-  // --- MULTIPLAYER LOGIC ---
   const handleJoinCrew = () => {
       if (!sessionKey) return;
       setCrewMode(true);
-      // Join Room via WS
       if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
               type: "join",
@@ -437,11 +492,8 @@ except Exception as e:
   };
 
   const handleCodeChange = (newCode) => {
-      // If I am Navigator, I cannot edit code.
       if (crewRole === 'navigator') return;
-
       setCode(newCode);
-      // Sync if in crew mode and I am Pilot
       if (crewMode && crewRole === 'pilot' && ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
               type: "code_sync",
@@ -462,7 +514,7 @@ except Exception as e:
   };
 
   const handleKeyDown = (e) => {
-    if (crewRole === 'navigator') return; // Read-only
+    if (crewRole === 'navigator') return;
     const { selectionStart, selectionEnd, value } = e.target;
     const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
     const closingChars = Object.values(pairs);
@@ -531,10 +583,8 @@ except Exception as e:
 
   return (
     <div className="flex h-screen bg-[#020617] text-slate-300 font-sans overflow-hidden">
-      
       {/* LEFT: EDITOR & TERMINAL */}
       <div className="flex flex-1 flex-col min-w-0 bg-[#0a0f1e]/40 backdrop-blur-sm relative border-r border-white/5">
-            
             <div className="relative z-50 min-h-[4.5rem] px-6 py-4 border-b border-white/5 flex justify-between items-start shrink-0 bg-[#0a0f1e]/90 shadow-xl">
                 <div className="flex flex-col gap-2 min-w-0">
                     <button 
@@ -552,7 +602,6 @@ except Exception as e:
                 </div>
                 
                 <div className="flex flex-col items-end gap-2">
-                    {/* BRIDGE CREW CONTROLS */}
                     {!crewMode ? (
                         <div className="flex items-center bg-white/5 rounded-lg p-1">
                             <input 
@@ -576,6 +625,14 @@ except Exception as e:
                     )}
 
                     <div className="flex items-center gap-3">
+                        
+                        {showGhostButton && (
+                            <button onClick={() => setGhostRecording(null)} className="px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
+                                <Icons.Ghost />
+                                <span>Replay Ghost</span>
+                            </button>
+                        )}
+                        
                         <button onClick={() => handleSave(false)} disabled={loading} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
                             <Icons.Save />
                             <span>Save</span>
@@ -612,7 +669,7 @@ except Exception as e:
                         onChange={(e) => handleCodeChange(e.target.value)} 
                         onKeyDown={handleKeyDown} 
                         spellCheck="false" 
-                        readOnly={crewRole === 'navigator'} // Navigator cannot type
+                        readOnly={crewRole === 'navigator'} 
                     />
                 </div>
             </div>
@@ -666,7 +723,7 @@ except Exception as e:
                 </div>
             )}
             
-            {visualData ? <CodeVisualizer data={visualData} trace={executionTrace} /> : (
+            {visualData ? <CodeVisualizer data={visualData} trace={executionTrace} glitchActive={glitch} ghostTrace={ghostRecording} /> : (
                 <div className="absolute inset-0 flex items-center justify-center flex-col opacity-30">
                     <div className="w-24 h-24 border border-dashed border-slate-600 rounded-full animate-spin-slow flex items-center justify-center">
                         <div className="w-20 h-20 border border-slate-700 rounded-full"></div>

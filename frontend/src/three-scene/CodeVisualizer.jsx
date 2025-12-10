@@ -1,17 +1,135 @@
 import React, { useRef, Suspense, useState, useEffect, useMemo } from 'react';
-import { Canvas, useFrame } from '@react-three/fiber';
-import { OrbitControls, Text, Stars, Html } from '@react-three/drei';
-import { XR, VRButton, Controllers, Hands } from '@react-three/xr'; // Fixed Import
+import { Canvas, useFrame, extend } from '@react-three/fiber';
+import { OrbitControls, Text, Stars, Html, Hud, OrthographicCamera, Plane, shaderMaterial } from '@react-three/drei';
+import { XR, VRButton, Controllers, Hands } from '@react-three/xr'; 
 import * as THREE from 'three';
+
+// --- SYNTHWAVE AUDIO ENGINE ---
+const useSynthwaveAudioEngine = (trace, data) => {
+    const audioContextRef = useRef(null);
+    const nodesMapRef = useRef(null);
+
+    useEffect(() => {
+        if (!audioContextRef.current) {
+            try {
+                audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
+            } catch (e) {
+                console.warn("Web Audio API not supported.");
+            }
+        }
+    }, []);
+
+    const playPulse = (freq, duration, wave = 'sine') => {
+        if (!audioContextRef.current) return;
+        const ctx = audioContextRef.current;
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.type = wave;
+        oscillator.frequency.setValueAtTime(freq, ctx.currentTime);
+        gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + duration);
+    };
+
+    // Trace Sonification Effect
+    useEffect(() => {
+        if (!trace || trace.length === 0 || !data || !audioContextRef.current) return;
+
+        const lineNodeMap = new Map();
+        data.nodes.forEach(n => {
+            if (n.lineno) lineNodeMap.set(n.lineno, n.type);
+        });
+        nodesMapRef.current = lineNodeMap;
+
+        let step = 0;
+        const interval = setInterval(() => {
+            if (step >= trace.length) {
+                clearInterval(interval);
+                return;
+            }
+
+            const lineNo = trace[step];
+            const nodeType = lineNodeMap.get(lineNo)?.toLowerCase();
+            
+            // Map Node Type to Sound
+            switch(nodeType) {
+                case 'loop':
+                    playPulse(100, 0.25, 'square'); // Low rhythmic bass
+                    break;
+                case 'function':
+                    playPulse(440, 0.1, 'triangle'); // Clear function trigger
+                    break;
+                case 'decision':
+                    playPulse(220, 0.15, 'sawtooth'); // Mid-range tension
+                    break;
+                case 'statement':
+                case 'operation':
+                    playPulse(880, 0.05, 'sine'); // High pitch quick tick
+                    break;
+                default:
+                    // Silent step
+            }
+
+            step++;
+        }, 500); // Syncs with visual playback speed
+
+        return () => clearInterval(interval);
+    }, [trace, data]);
+};
+
+// --- CUSTOM GLITCH SHADER MATERIAL ---
+const GlitchMaterial = shaderMaterial(
+  { time: 0, active: 0, resolution: new THREE.Vector2() },
+  // Vertex Shader
+  `varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
+  // Fragment Shader
+  `
+  uniform float time;
+  uniform float active;
+  varying vec2 vUv;
+  
+  float rand(vec2 co){return fract(sin(dot(co.xy ,vec2(12.9898,78.233))) * 43758.5453);}
+  
+  void main() {
+    if (active < 0.5) discard;
+    vec2 uv = vUv;
+    
+    // Slice Distortion
+    float slice = step(0.9, sin(time * 10.0 + uv.y * 10.0));
+    uv.x += slice * 0.05 * sin(time * 20.0);
+    
+    // RGB Split / Chromatic Aberration
+    float r = rand(vec2(time, uv.y));
+    float g = rand(vec2(time + 0.1, uv.y));
+    float b = rand(vec2(time + 0.2, uv.y));
+    
+    // Scanlines
+    float scanline = sin(uv.y * 800.0) * 0.1;
+    
+    // Noise
+    float noise = rand(uv * time) * 0.2;
+    
+    vec3 color = vec3(r, g, b);
+    gl_FragColor = vec4(color + scanline + noise, 0.4); // Semi-transparent
+  }
+  `
+);
+
+extend({ GlitchMaterial });
 
 // --- Configuration for Node Styling ---
 const NODE_STYLE_MAP = {
-  'function': { color: '#3B82F6', size: 1.2, text: 'Function' },    // Blue Cube
-  'loop': { color: '#10B981', size: 1.0, text: 'Loop' },          // Emerald Torus
-  'decision': { color: '#F59E0B', size: 0.9, text: 'Decision' },      // Amber Diamond
-  'statement': { color: '#F9FAFB', size: 0.5, text: 'Statement' },    // Gray Sphere
-  'operation': { color: '#EC4899', size: 0.7, text: 'Action' },    // Pink Sphere
-  'default': { color: '#ef4444', size: 0.5, text: 'Error' }        // Red
+  'function': { color: '#3B82F6', size: 1.2, text: 'Function' },    
+  'loop': { color: '#10B981', size: 1.0, text: 'Loop' },          
+  'decision': { color: '#F59E0B', size: 0.9, text: 'Decision' },      
+  'statement': { color: '#F9FAFB', size: 0.5, text: 'Statement' },    
+  'operation': { color: '#EC4899', size: 0.7, text: 'Action' },    
+  'default': { color: '#ef4444', size: 0.5, text: 'Error' }        
 };
 
 // --- LEGEND OVERLAY ---
@@ -27,7 +145,30 @@ const Legend = () => (
     </div>
 );
 
-// --- FORCE LAYOUT HOOK ---
+// --- GLITCH OVERLAY COMPONENT ---
+const GlitchOverlay = ({ active }) => {
+    const material = useRef();
+    
+    useFrame((state) => {
+        if (material.current) {
+            material.current.uniforms.time.value = state.clock.elapsedTime;
+            material.current.uniforms.active.value = active ? 1.0 : 0.0;
+        }
+    });
+
+    if (!active) return null;
+
+    return (
+        <Hud renderPriority={1}>
+            <OrthographicCamera makeDefault position={[0, 0, 1]} />
+            <Plane args={[2, 2]}>
+                <glitchMaterial ref={material} transparent />
+            </Plane>
+        </Hud>
+    );
+};
+
+// --- FORCE LAYOUT HOOK (UNCHANGED) ---
 const useForceLayout = (initialNodes, initialLinks) => {
     const [positionedNodes, setPositionedNodes] = useState([]);
     const nodesRef = useRef(new Map());
@@ -55,7 +196,6 @@ const useForceLayout = (initialNodes, initialLinks) => {
         const damping = 0.9;
         const nodeMap = new Map(simulationNodes.map(n => [n.id, n]));
 
-        // Repulsion
         for (let i = 0; i < simulationNodes.length; i++) {
             const nodeA = simulationNodes[i];
             let forceX = 0, forceY = 0, forceZ = 0;
@@ -74,7 +214,6 @@ const useForceLayout = (initialNodes, initialLinks) => {
                     forceZ += strength * dz / distance;
                 }
             }
-            // Center Drag
             forceX -= nodeA.position[0] * 0.01;
             forceY -= nodeA.position[1] * 0.01;
             forceZ -= nodeA.position[2] * 0.01;
@@ -84,7 +223,6 @@ const useForceLayout = (initialNodes, initialLinks) => {
             nodeA.velocity[2] = (nodeA.velocity[2] + forceZ * safeDelta) * damping;
         }
         
-        // Attraction
         initialLinks.forEach(link => {
             const source = nodeMap.get(link.source);
             const target = nodeMap.get(link.target);
@@ -120,7 +258,7 @@ const useForceLayout = (initialNodes, initialLinks) => {
     return positionedNodes;
 };
 
-// --- RENDER COMPONENTS ---
+// --- RENDER COMPONENTS (UNCHANGED) ---
 
 const GraphLink = React.memo(({ startPos, endPos }) => {
     if (!startPos || !endPos) return null;
@@ -133,7 +271,36 @@ const GraphLink = React.memo(({ startPos, endPos }) => {
     );
 });
 
-// "Data Flow" Particle
+// GHOST PULSE PARTICLE VARIANT
+const GhostPulseParticle = React.memo(({ startPos, endPos, active }) => {
+    const meshRef = useRef();
+    const [progress, setProgress] = useState(0);
+    
+    useFrame((state, delta) => {
+        if (!active || !meshRef.current || !startPos || !endPos) {
+            if(meshRef.current) meshRef.current.visible = false;
+            return;
+        }
+        
+        meshRef.current.visible = true;
+        let newProgress = progress + delta * 1.0; // Slower than active pulse
+        if (newProgress > 1) newProgress = 0; 
+        setProgress(newProgress);
+
+        meshRef.current.position.x = THREE.MathUtils.lerp(startPos[0], endPos[0], newProgress);
+        meshRef.current.position.y = THREE.MathUtils.lerp(startPos[1], endPos[1], newProgress);
+        meshRef.current.position.z = THREE.MathUtils.lerp(startPos[2], endPos[2], newProgress);
+    });
+
+    return (
+        <mesh ref={meshRef}>
+            <sphereGeometry args={[0.06, 8, 8]} />
+            <meshBasicMaterial color="#a855f7" transparent opacity={0.6} />
+        </mesh>
+    );
+});
+
+
 const PulseParticle = React.memo(({ startPos, endPos, active }) => {
     const meshRef = useRef();
     const [progress, setProgress] = useState(0);
@@ -145,8 +312,8 @@ const PulseParticle = React.memo(({ startPos, endPos, active }) => {
         }
         
         meshRef.current.visible = true;
-        let newProgress = progress + delta * 2.0; // Speed of data flow
-        if (newProgress > 1) newProgress = 0; // Loop or reset
+        let newProgress = progress + delta * 2.0; 
+        if (newProgress > 1) newProgress = 0; 
         setProgress(newProgress);
 
         meshRef.current.position.x = THREE.MathUtils.lerp(startPos[0], endPos[0], newProgress);
@@ -162,6 +329,53 @@ const PulseParticle = React.memo(({ startPos, endPos, active }) => {
     );
 });
 
+// GHOST NODE VARIANT
+const GhostNode = React.memo(({ position, type, label, isActive }) => {
+    const style = NODE_STYLE_MAP[type?.toLowerCase()] || NODE_STYLE_MAP.default;
+    const meshRef = useRef();
+    
+    useFrame((state, delta) => {
+        if (meshRef.current) {
+            meshRef.current.rotation.x += delta * 0.1;
+            meshRef.current.rotation.y += delta * 0.2;
+            
+            const baseScale = 0.9;
+            if (isActive) {
+                const scale = baseScale * (1 + Math.sin(state.clock.elapsedTime * 5) * 0.05);
+                meshRef.current.scale.set(scale, scale, scale);
+            } else {
+                meshRef.current.scale.set(baseScale, baseScale, baseScale);
+            }
+        }
+    });
+
+    const Geometry = () => {
+        const t = type?.toLowerCase();
+        if (t === 'function') return <boxGeometry args={[style.size * 0.3, style.size * 0.3, style.size * 0.3]} />;
+        if (t === 'loop') return <torusGeometry args={[style.size * 0.2, style.size * 0.05, 8, 16]} />;
+        if (t === 'decision') return <octahedronGeometry args={[style.size * 0.2]} />;
+        return <sphereGeometry args={[style.size * 0.15, 16, 16]} />;
+    };
+
+    return (
+        <group position={position}>
+            <mesh ref={meshRef}>
+                <Geometry />
+                <meshStandardMaterial 
+                    color={isActive ? '#a855f7' : '#ffffff'} 
+                    emissive={isActive ? '#a855f7' : style.color} 
+                    emissiveIntensity={isActive ? 1.5 : 0.2}
+                    transparent
+                    opacity={isActive ? 0.6 : 0.15} 
+                    roughness={0.8}
+                    metalness={0}
+                />
+            </mesh>
+        </group>
+    );
+});
+
+
 const GraphNode = React.memo(({ position, type, label, isActive }) => {
     const style = NODE_STYLE_MAP[type?.toLowerCase()] || NODE_STYLE_MAP.default;
     const meshRef = useRef();
@@ -172,7 +386,6 @@ const GraphNode = React.memo(({ position, type, label, isActive }) => {
             meshRef.current.rotation.x += delta * 0.2;
             meshRef.current.rotation.y += delta * 0.3;
             
-            // Pulse effect if active (execution visiting this node)
             if (isActive) {
                 const scale = 1 + Math.sin(state.clock.elapsedTime * 10) * 0.1;
                 meshRef.current.scale.set(scale, scale, scale);
@@ -207,7 +420,6 @@ const GraphNode = React.memo(({ position, type, label, isActive }) => {
                 />
             </mesh>
             
-            {/* 3D Label */}
             <Text
                 fontSize={0.15}
                 color="#e2e8f0"
@@ -221,7 +433,6 @@ const GraphNode = React.memo(({ position, type, label, isActive }) => {
                 {label.split(':').slice(1).join(':').trim()}
             </Text>
 
-            {/* Hover Annotation */}
             {hovered && (
                 <Html distanceFactor={10}>
                     <div className="bg-black/80 text-white text-[10px] p-2 rounded border border-blue-500/50 whitespace-nowrap backdrop-blur-md">
@@ -234,12 +445,18 @@ const GraphNode = React.memo(({ position, type, label, isActive }) => {
     );
 });
 
-const DynamicASTVisualization = ({ data, trace }) => {
+// --- MAIN DYNAMIC SCENE ---
+const DynamicASTVisualization = ({ data, trace, ghostTrace }) => {
     const positionedNodes = useForceLayout(data.nodes, data.links);
     const [activeNodeId, setActiveNodeId] = useState(null);
-    const [activeLink, setActiveLink] = useState(null); // For particle flow
+    const [activeGhostNodeId, setActiveGhostNodeId] = useState(null); 
+    const [activeLink, setActiveLink] = useState(null); 
+    const [activeGhostLink, setActiveGhostLink] = useState(null); // NEW
 
-    // Trace Playback Logic
+    // Utility map for quick lookups
+    const positionedNodesMap = new Map(positionedNodes.map(n => [n.id, n]));
+    
+    // Playback Logic (Active Trace)
     useEffect(() => {
         if (!trace || trace.length === 0) return;
         
@@ -253,35 +470,100 @@ const DynamicASTVisualization = ({ data, trace }) => {
             }
 
             const lineNo = trace[step];
-            // Find node corresponding to this line number
-            // Note: AST parsing logic in backend needs to ensure 'lineno' is sent.
             const node = positionedNodes.find(n => n.lineno === lineNo);
             
             if (node) {
-                // If we jumped from one node to another, trigger particle
                 if (activeNodeId !== null && activeNodeId !== node.id) {
                     setActiveLink({ source: activeNodeId, target: node.id });
                 }
                 setActiveNodeId(node.id);
             }
             step++;
-        }, 500); // 0.5s per step
+        }, 500); 
 
         return () => clearInterval(interval);
     }, [trace, positionedNodes]);
-
-    const positionedNodesMap = new Map(positionedNodes.map(n => [n.id, n]));
     
+    // Ghost Playback Logic (Passive Trace)
+    useEffect(() => {
+        if (!ghostTrace || ghostTrace.length === 0) {
+            setActiveGhostNodeId(null);
+            return;
+        }
+
+        const nodesMapByLine = new Map();
+        positionedNodes.forEach(n => {
+            if (n.lineno) nodesMapByLine.set(n.lineno, n.id);
+        });
+        
+        let ghostStep = 0;
+        let lastTime = ghostTrace[0].timestamp;
+        
+        const ghostInterval = setInterval(() => {
+            if (ghostStep >= ghostTrace.length) {
+                clearInterval(ghostInterval);
+                setActiveGhostNodeId(null);
+                setActiveGhostLink(null);
+                return;
+            }
+            
+            const currentEvent = ghostTrace[ghostStep];
+            const nextEvent = ghostTrace[ghostStep + 1];
+
+            const lineNo = currentEvent.line;
+            const nodeId = nodesMapByLine.get(lineNo);
+            
+            if (nodeId) {
+                // Ghost Link activation
+                if (activeGhostNodeId !== null && activeGhostNodeId !== nodeId) {
+                    setActiveGhostLink({ source: activeGhostNodeId, target: nodeId });
+                }
+                setActiveGhostNodeId(nodeId);
+            }
+            
+            // Calculate actual time delta from recorded timestamps
+            let delay = 500;
+            if (nextEvent) {
+                delay = nextEvent.timestamp - currentEvent.timestamp;
+                delay = Math.max(50, delay); // Cap speed for visualization
+            } else {
+                // If last step, clear interval after processing
+                setTimeout(() => clearInterval(ghostInterval), 50);
+            }
+            
+            // Wait for the calculated delay before processing next step
+            setTimeout(() => {
+                 ghostStep++;
+            }, delay);
+            
+            // Due to relying on the fixed 50ms interval, this needs complex management.
+            // Simplified: Advance counter and let the next cycle pick up the next event.
+            // For true fidelity, one would use a master scheduler/timeline outside this hook.
+            
+            // For a simpler effect, we just use a fixed rate:
+            if (ghostStep === ghostTrace.length - 1) {
+                clearInterval(ghostInterval);
+            }
+            ghostStep++;
+
+        }, 500); // Fixed interval for simple visual ghost effect
+
+        return () => clearInterval(ghostInterval);
+    }, [ghostTrace, positionedNodes]);
+
+
     const renderableLinks = data.links.map(link => {
         const sourceNode = positionedNodesMap.get(link.source);
         const targetNode = positionedNodesMap.get(link.target);
         const isFlowing = activeLink && activeLink.source === link.source && activeLink.target === link.target;
+        const isGhostFlowing = activeGhostLink && activeGhostLink.source === link.source && activeGhostLink.target === link.target;
         
         return {
             key: `${link.source}-${link.target}`,
             startPos: sourceNode ? sourceNode.position : null,
             endPos: targetNode ? targetNode.position : null,
-            active: isFlowing
+            active: isFlowing,
+            ghostActive: isGhostFlowing, // NEW
         };
     }).filter(link => link.startPos && link.endPos);
 
@@ -292,6 +574,32 @@ const DynamicASTVisualization = ({ data, trace }) => {
             <pointLight position={[-10, -10, -10]} intensity={1} color="#ec4899" />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
+            {/* Render Ghost Nodes & Particles */}
+            {ghostTrace && positionedNodes.map((node) => (
+                <React.Fragment key={`ghost-${node.id}`}>
+                    <GhostNode 
+                        position={node.position} 
+                        type={node.type} 
+                        label={node.label} 
+                        isActive={node.id === activeGhostNodeId} 
+                    />
+                </React.Fragment>
+            ))}
+
+            {/* Render Links and Particles */}
+            {renderableLinks.map((link) => (
+                <React.Fragment key={link.key}>
+                    <GraphLink startPos={link.startPos} endPos={link.endPos} />
+                    
+                    {/* Active Particle */}
+                    <PulseParticle startPos={link.startPos} endPos={link.endPos} active={link.active} />
+                    
+                    {/* Ghost Particle */}
+                    <GhostPulseParticle startPos={link.startPos} endPos={link.endPos} active={link.ghostActive} />
+                </React.Fragment>
+            ))}
+            
+            {/* Render Active Nodes */}
             {positionedNodes.map((node) => (
                 <GraphNode 
                     key={node.id} 
@@ -301,16 +609,7 @@ const DynamicASTVisualization = ({ data, trace }) => {
                     isActive={node.id === activeNodeId} 
                 />
             ))}
-
-            {renderableLinks.map((link) => (
-                <React.Fragment key={link.key}>
-                    <GraphLink startPos={link.startPos} endPos={link.endPos} />
-                    {/* "Data Flow" Particle triggered by execution trace */}
-                    <PulseParticle startPos={link.startPos} endPos={link.endPos} active={link.active} />
-                </React.Fragment>
-            ))}
             
-            {/* VR Controllers & Hands */}
             <Controllers />
             <Hands />
             
@@ -319,7 +618,9 @@ const DynamicASTVisualization = ({ data, trace }) => {
     );
 };
 
-const CodeVisualizer = ({ data, trace }) => {
+const CodeVisualizer = ({ data, trace, glitchActive, ghostTrace }) => {
+  useSynthwaveAudioEngine(trace, data); 
+    
   const isValidData = data && data.nodes && data.nodes.length > 0 && !data.error;
 
   if (!isValidData) {
@@ -338,13 +639,14 @@ const CodeVisualizer = ({ data, trace }) => {
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <Legend />
-      {/* VR/WebXR Button Overlay */}
       <VRButton className="absolute bottom-4 right-4 z-50 px-4 py-2 bg-blue-600 rounded text-white text-xs font-bold uppercase tracking-widest shadow-lg" />
       
       <Canvas camera={{ position: [0, 0, 8], fov: 60 }} style={{ background: '#00000000' }}>
         <XR>
             <Suspense fallback={<Text color="white">Loading 3D Scene...</Text>}>
-              <DynamicASTVisualization data={data} trace={trace} /> 
+              <GlitchOverlay active={glitchActive} />
+              
+              <DynamicASTVisualization data={data} trace={trace} ghostTrace={ghostTrace} /> 
             </Suspense>
         </XR>
       </Canvas>
