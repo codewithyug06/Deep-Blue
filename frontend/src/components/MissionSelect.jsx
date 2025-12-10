@@ -104,7 +104,15 @@ const MissionCard = ({ mission, onClick, onViewLeaderboard }) => {
     Hard: 'from-rose-500 to-red-600',
   };
   
+  // New color configuration for text and borders
+  const difficultyTextColors = {
+    Easy: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+    Medium: 'text-amber-400 border-amber-500/30 bg-amber-500/10',
+    Hard: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
+  };
+
   const accentGradient = difficultyColors[mission.difficulty] || difficultyColors['Medium'];
+  const textStyle = difficultyTextColors[mission.difficulty] || difficultyTextColors['Medium'];
 
   return (
     <motion.div 
@@ -125,7 +133,8 @@ const MissionCard = ({ mission, onClick, onViewLeaderboard }) => {
 
             <div onClick={() => onClick(mission)} className="cursor-pointer">
                 <div className="flex justify-between items-start mb-4">
-                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded bg-white/5 border border-white/10 ${mission.difficulty === 'Hard' ? 'text-red-400' : 'text-slate-400'} group-hover:text-white group-hover:bg-white/10 transition-colors`}>
+                    {/* Updated Difficulty Badge with Specific Colors */}
+                    <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${textStyle} transition-colors`}>
                         {mission.difficulty}
                     </span>
                     <button 

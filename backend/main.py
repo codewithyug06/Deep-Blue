@@ -389,6 +389,66 @@ async def analyze_code(request: CodeRequest):
         visual_data = {"error": str(e), "nodes": [], "links": []}
     return {"visual_data": visual_data, "premium_locked": not request.is_premium}
 
+# --- [NEW] VS CODE NEURAL LINK EXTENSION SUPPORT ---
+
+@app.post("/extension/sync")
+async def sync_extension(request: CodeRequest):
+    """
+    Dedicated endpoint for the VS Code Neural Link Extension.
+    Allows local coding with remote AI analysis and 3D visualization.
+    """
+    # Reuse existing analysis logic
+    analysis = await analyze_code(request)
+    
+    # Add extension-specific metadata if needed
+    analysis["source"] = "vscode_neural_link"
+    analysis["status"] = "synced"
+    
+    return analysis
+
+@app.get("/problems")
+def get_problems(user_id: int = None, db: Session = Depends(get_db)):
+    """
+    Fetches all coding problems/missions for the Problem List UI.
+    Includes user completion status.
+    """
+    file_path = os.path.join("app", "data", "missions.json")
+    try:
+        with open(file_path, "r") as f:
+            data = json.load(f)
+        
+        all_problems = []
+        if isinstance(data, dict):
+            for category, items in data.items():
+                for p in items:
+                    p['topic'] = category
+                    
+                    # status check
+                    if user_id:
+                        progress = db.query(models.UserProgress).filter_by(
+                            user_id=user_id, 
+                            mission_id=p['id'], 
+                            is_completed=True
+                        ).first()
+                        p['status'] = 'Solved' if progress else 'Active'
+                    else:
+                        p['status'] = 'Locked'
+                        
+                    # Mock acceptance rate for now (or calc from DB if we had aggregations)
+                    p['acceptance'] = f"{min(99, max(10, (p['id'] % 100)))}%" 
+                    
+                    all_problems.append(p)
+        elif isinstance(data, list):
+            # Fallback if structure is flat
+            all_problems = data
+            
+        return all_problems
+    except Exception as e:
+        print(f"Error fetching problems: {e}")
+        return []
+
+# --- EXISTING ENDPOINTS (CONTINUED) ---
+
 @app.get("/missions")
 def get_missions(is_premium: bool = False):
     file_path = os.path.join("app", "data", "missions.json")
