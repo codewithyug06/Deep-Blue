@@ -8,15 +8,20 @@ class CodeTo3DVisitor(ast.NodeVisitor):
         self.parent_stack = [] 
         self.node_counter = 0
 
-    def _add_node(self, label, type_name):
+    def _add_node(self, label, type_name, lineno=None):
         # Assign a unique integer ID for easier linking
         node_id = self.node_counter 
-        self.nodes.append({
+        node_data = {
             "id": node_id,
             "label": label,
             "type": type_name,
             "group": 1 if type_name == "function" else 2 # Grouping helps with visual clustering
-        })
+        }
+        # Add line number metadata if available (Critical for Execution Flow Visualization)
+        if lineno is not None:
+            node_data["lineno"] = lineno
+            
+        self.nodes.append(node_data)
         self.node_counter += 1
         return node_id
 
@@ -33,7 +38,8 @@ class CodeTo3DVisitor(ast.NodeVisitor):
     # --- Core Structure Nodes ---
 
     def visit_FunctionDef(self, node):
-        node_id = self._add_node(f"Func: {node.name}", "function")
+        # Pass node.lineno to _add_node
+        node_id = self._add_node(f"Func: {node.name}", "function", getattr(node, 'lineno', None))
         if self.parent_stack:
             self._add_link(self.parent_stack[-1], node_id)
         self.parent_stack.append(node_id)
@@ -44,7 +50,7 @@ class CodeTo3DVisitor(ast.NodeVisitor):
 
     def visit_For(self, node):
         target = node.target.id if isinstance(node.target, ast.Name) else "iterator"
-        node_id = self._add_node(f"Loop: For {target}", "loop")
+        node_id = self._add_node(f"Loop: For {target}", "loop", getattr(node, 'lineno', None))
         if self.parent_stack:
             self._add_link(self.parent_stack[-1], node_id)
         self.parent_stack.append(node_id)
@@ -54,7 +60,7 @@ class CodeTo3DVisitor(ast.NodeVisitor):
     def visit_If(self, node):
         # We can try to extract the first part of the condition for a better label
         test_label = ast.dump(node.test, indent=None).split('\n')[0]
-        node_id = self._add_node(f"Decision: If ({test_label[:20]}...)", "decision")
+        node_id = self._add_node(f"Decision: If ({test_label[:20]}...)", "decision", getattr(node, 'lineno', None))
         if self.parent_stack:
             self._add_link(self.parent_stack[-1], node_id)
         self.parent_stack.append(node_id)
@@ -67,7 +73,7 @@ class CodeTo3DVisitor(ast.NodeVisitor):
         # Handles variable assignments: e.g., 'x = 10'
         # Get the target variable name (handles simple assignment)
         target_name = node.targets[0].id if hasattr(node.targets[0], 'id') else 'Assignment'
-        node_id = self._add_node(f"Assign: {target_name}", "statement")
+        node_id = self._add_node(f"Assign: {target_name}", "statement", getattr(node, 'lineno', None))
         if self.parent_stack:
             self._add_link(self.parent_stack[-1], node_id)
         
@@ -87,7 +93,7 @@ class CodeTo3DVisitor(ast.NodeVisitor):
                 object_name = 'Object'
             func_name = f"{object_name}.{node.func.attr}"
             
-        node_id = self._add_node(f"Call: {func_name}", "operation")
+        node_id = self._add_node(f"Call: {func_name}", "operation", getattr(node, 'lineno', None))
         if self.parent_stack:
             self._add_link(self.parent_stack[-1], node_id)
         

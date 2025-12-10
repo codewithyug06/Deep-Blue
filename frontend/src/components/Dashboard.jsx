@@ -7,13 +7,14 @@ import { motion, AnimatePresence } from 'framer-motion';
 const Icons = {
   Run: () => <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" /></svg>,
   Analyze: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19.428 15.428a2 2 0 00-1.022-.547l-2.384-.477a6 6 0 00-3.86.517l-.318.158a6 6 0 01-3.86.517L6.05 15.21a2 2 0 00-1.806.547M8 4h8l-1 1v5.172a2 2 0 00.586 1.414l5 5c1.26 1.26.367 3.414-1.415 3.414H4.828c-1.782 0-2.674-2.154-1.414-3.414l5-5A2 2 0 009 10.172V5L8 4z" /></svg>,
-  Back: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
+  Back: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>,
   Check: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>,
   Cross: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
   Terminal: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>,
   Brain: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" /></svg>,
   Lock: () => <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>,
-  Send: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
+  Send: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>,
+  Save: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>
 };
 
 const highlightCode = (code) => {
@@ -42,7 +43,7 @@ const ChatInterface = ({ messages, onSend, loading }) => {
 
     const handleSend = (e) => {
         e.preventDefault();
-        if(!input.trim() || loading) return;
+        if(!input.trim()) return;
         onSend(input);
         setInput("");
     };
@@ -114,25 +115,77 @@ const ChatInterface = ({ messages, onSend, loading }) => {
 const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrade }) => {
   const [code, setCode] = useState(initialCode || `def solve():\n    # Write your solution here\n    pass`);
   const [visualData, setVisualData] = useState(null);
+  const [executionTrace, setExecutionTrace] = useState([]); 
   const [output, setOutput] = useState("");
   const [testResults, setTestResults] = useState(null);
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState("terminal"); 
-  const [upgrading, setUpgrading] = useState(false); 
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const [chatMessages, setChatMessages] = useState([]);
+  
+  const [pyodide, setPyodide] = useState(null);
+  const [missionData, setMissionData] = useState(null);
+  const [ws, setWs] = useState(null);
 
   const isPremium = user?.is_premium || false;
-  const userId = user?.id;
   
-  // Refs
   const textareaRef = useRef(null);
   const highlightRef = useRef(null);
   const messagesEndRef = useRef(null); 
 
+  // --- INITIALIZE PYODIDE & WEBSOCKET ---
   useEffect(() => {
-    if (messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
-  }, [output, testResults, activeTab]);
+    // 1. Load Pyodide
+    const loadPyodideEngine = async () => {
+      try {
+        if (window.loadPyodide) {
+          const py = await window.loadPyodide();
+          setPyodide(py);
+          console.log(">> Pyodide Engine Ready");
+        }
+      } catch (err) {
+        setOutput(">> Error loading local Python engine: " + err.message);
+      }
+    };
+    loadPyodideEngine();
+
+    // 2. Fetch Mission Data & SAVED PROGRESS
+    const initMission = async () => {
+        if(missionId) {
+            try {
+                // Fetch Mission Details
+                const res = await axios.get('http://127.0.0.1:8000/missions?is_premium=true');
+                const found = res.data.find(m => m.id === missionId);
+                setMissionData(found);
+
+                // Fetch Saved Progress (Work-in-progress code)
+                if (user?.id) {
+                    const progressRes = await axios.get(`http://127.0.0.1:8000/get-progress?user_id=${user.id}&mission_id=${missionId}`);
+                    if (progressRes.data && progressRes.data.code) {
+                        setCode(progressRes.data.code);
+                        setOutput(">> Saved progress loaded successfully.\n");
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to load mission data", e);
+            }
+        }
+    };
+    initMission();
+
+    // 3. Connect WebSocket
+    const socket = new WebSocket('ws://127.0.0.1:8000/ws/chat');
+    socket.onopen = () => console.log(">> Neural Link Established (WebSocket)");
+    socket.onmessage = (event) => {
+        const data = JSON.parse(event.data);
+        setLoading(false);
+        setChatMessages(prev => [...prev, { role: data.role, text: data.text }]);
+    };
+    socket.onclose = () => console.log(">> Neural Link Disconnected");
+    setWs(socket);
+
+    return () => socket.close();
+  }, [missionId]);
 
   const handleScroll = () => {
     if (textareaRef.current && highlightRef.current) {
@@ -140,65 +193,265 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     }
   };
 
-  const startResizing = (mouseDownEvent) => {
-      mouseDownEvent.preventDefault();
-      const startX = mouseDownEvent.clientX;
-      const startWidth = sidebarWidth;
-      const onMouseMove = (mouseMoveEvent) => {
-          const newWidth = startWidth - (mouseMoveEvent.clientX - startX);
-          if (newWidth > 250 && newWidth < 800) setSidebarWidth(newWidth);
-      };
-      const onMouseUp = () => {
-          document.removeEventListener("mousemove", onMouseMove);
-          document.removeEventListener("mouseup", onMouseUp);
-          document.body.style.cursor = "default";
-      };
-      document.addEventListener("mousemove", onMouseMove);
-      document.addEventListener("mouseup", onMouseUp);
-      document.body.style.cursor = "ew-resize";
-  };
-
-  const handleKeyDown = (e) => {
-    if (e.key === 'Tab') {
-      e.preventDefault();
-      const start = e.target.selectionStart;
-      const end = e.target.selectionEnd;
-      setCode(code.substring(0, start) + "    " + code.substring(end));
-      setTimeout(() => { e.target.selectionStart = e.target.selectionEnd = start + 4; }, 0);
-    }
-  };
-
-  // --- ACTIONS ---
-  const handleRun = async () => {
-      setLoading(true);
-      setOutput(">> Initializing runtime environment...\n>> Executing sequence...");
-      setTestResults(null);
-      setActiveTab("terminal");
+  // --- SAVE PROGRESS (UPDATED) ---
+  const handleSave = async (isCompleted = false) => {
+      if (!user || !missionId) return;
       try {
-          const response = await axios.post('http://127.0.0.1:8000/execute', { code, mission_id: missionId });
-          setOutput(response.data.output || ">> Process exited with code 0. No output.");
-          if (response.data.test_results) {
-              setTestResults(response.data.test_results);
-              setActiveTab("tests");
+          await axios.post('http://localhost:8000/save-progress', {
+              user_id: user.id,
+              mission_id: missionId,
+              code: code,
+              is_completed: isCompleted // Only mark True if tests passed
+          });
+          
+          if (!isCompleted) {
+              setOutput(prev => prev + "\n>> System: Draft saved. You can resume later. 💾");
+          } else {
+              setOutput(prev => prev + "\n>> System: Mission Completed & Status Updated! 🏆");
           }
-      } catch (error) { setOutput(">> CRITICAL ERROR: Runtime Connection Failed."); }
+      } catch (error) {
+          console.error(error);
+          setOutput(prev => prev + "\n>> Error: Save Failed.");
+      }
+  };
+
+  // --- CLIENT-SIDE EXECUTION ---
+  const handleRun = async () => {
+      if (!pyodide) {
+          setOutput(">> Engine initializing... please wait.");
+          return;
+      }
+      setLoading(true);
+      setOutput(">> Executing locally in browser environment...\n");
+      setTestResults(null);
+      setExecutionTrace([]); 
+      setActiveTab("terminal");
+
+      try {
+          pyodide.runPython(`
+            import sys
+            import io
+            sys.stdout = io.StringIO()
+          `);
+
+          const wrappedCode = `
+import sys
+__trace_data__ = []
+
+def __trace_func__(frame, event, arg):
+    if event == 'line':
+        __trace_data__.append(frame.f_lineno)
+    return __trace_func__
+
+sys.settrace(__trace_func__)
+
+try:
+${code.split('\n').map(line => '    ' + line).join('\n')}
+except Exception:
+    raise
+finally:
+    sys.settrace(None)
+`;
+          await pyodide.loadPackagesFromImports(code);
+          await pyodide.runPythonAsync(wrappedCode);
+          
+          const traceProxy = pyodide.globals.get('__trace_data__');
+          const traceList = traceProxy.toJs();
+          traceProxy.destroy();
+          setExecutionTrace(traceList); 
+
+          const stdout = pyodide.runPython("sys.stdout.getvalue()");
+          setOutput(prev => prev + stdout + "\n>> Execution Complete.");
+
+          if (missionData && missionData.test_cases) {
+              const results = [];
+              for (let i = 0; i < missionData.test_cases.length; i++) {
+                  const tc = missionData.test_cases[i];
+                  const testCode = `
+try:
+    result = ${extractFunctionName(code)}(*${JSON.stringify(tc.input)})
+    passed = result == ${JSON.stringify(tc.expected)}
+    output = str(result)
+except Exception as e:
+    passed = False
+    output = str(e)
+[passed, output]
+                  `;
+                  try {
+                    const [passed, actual] = pyodide.runPython(testCode).toJs();
+                    results.push({
+                        id: i + 1,
+                        input: JSON.stringify(tc.input),
+                        expected: JSON.stringify(tc.expected),
+                        actual: actual,
+                        passed: passed
+                    });
+                  } catch (err) {
+                      results.push({ id: i + 1, passed: false, actual: "Runtime Error" });
+                  }
+              }
+              setTestResults(results);
+              if(results.length > 0) setActiveTab("tests");
+
+              // --- AUTO COMPLETE LOGIC ---
+              const allPassed = results.length > 0 && results.every(r => r.passed);
+              if (allPassed) {
+                  setOutput(prev => prev + "\n\n>> ✨ ALL SYSTEMS NOMINAL ✨\n>> Mission Completed. Auto-saving status...");
+                  // Pass TRUE to mark as completed
+                  await handleSave(true);
+              }
+          }
+
+      } catch (error) {
+          setOutput(prev => prev + `>> Runtime Error:\n${error.message}`);
+      }
       setLoading(false);
   };
 
+  const extractFunctionName = (codeStr) => {
+      const match = codeStr.match(/def\s+(\w+)\s*\(/);
+      return match ? match[1] : 'solve';
+  };
+
   const handleAnalyze = async () => {
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        setOutput(">> Error: Neural Link not active.");
+        return;
+    }
     setLoading(true);
     setVisualData(null);
     setChatMessages(prev => [...prev, { role: 'user', text: "Start Socratic Analysis Protocol..." }]);
+    
     try {
-      const response = await axios.post('http://127.0.0.1:8000/analyze', {
-        code: code, user_input: `MISSION OBJECTIVE: ${missionDesc}\n\nAnalyze this logic`, is_premium: isPremium 
-      });
-      setVisualData(response.data.visual_data);
-      setChatMessages(prev => [...prev, { role: 'ai', text: response.data.ai_feedback }]);
-    } catch (error) {
-        setChatMessages(prev => [...prev, { role: 'ai', text: ">> CONNECTION LOST: Neural Link Severed." }]);
+        const visualRes = await axios.post('http://127.0.0.1:8000/analyze', {
+            code: code, is_premium: isPremium 
+        });
+        setVisualData(visualRes.data.visual_data);
+    } catch (e) {
+        console.error("Visuals failed");
     }
-    setLoading(false);
+
+    ws.send(JSON.stringify({
+        message: `MISSION OBJECTIVE: ${missionDesc}\n\nAnalyze this logic`,
+        code: code,
+        session_id: user.username
+    }));
+  };
+
+  const handleChatSend = (text) => {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+          setChatMessages(prev => [...prev, { role: 'user', text }]);
+          setLoading(true);
+          ws.send(JSON.stringify({
+              message: text,
+              code: code, 
+              session_id: user.username
+          }));
+      }
+  };
+
+  const startResizing = (e) => {
+      e.preventDefault();
+      const startX = e.clientX;
+      const startWidth = sidebarWidth;
+      const onMove = (e) => setSidebarWidth(Math.max(250, Math.min(800, startWidth - (e.clientX - startX))));
+      const onUp = () => { window.removeEventListener('mousemove', onMove); window.removeEventListener('mouseup', onUp); };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+  };
+
+  // --- SMART KEY HANDLING (Auto-Close & Indent) ---
+  const handleKeyDown = (e) => {
+    const { selectionStart, selectionEnd, value } = e.target;
+    
+    const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
+    const closingChars = Object.values(pairs);
+
+    // 1. Tab Handling
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      const newText = value.substring(0, selectionStart) + "    " + value.substring(selectionEnd);
+      setCode(newText);
+      setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 4; }, 0);
+      return;
+    }
+
+    // 2. Overwrite Closing Character
+    if (selectionStart === selectionEnd && closingChars.includes(e.key) && value[selectionStart] === e.key) {
+        e.preventDefault();
+        setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1; }, 0);
+        return;
+    }
+
+    // 3. Auto-Closing Pairs
+    if (pairs[e.key]) {
+      e.preventDefault();
+      const closing = pairs[e.key];
+      const selectedText = value.substring(selectionStart, selectionEnd);
+      const newText = value.substring(0, selectionStart) + e.key + selectedText + closing + value.substring(selectionEnd);
+      setCode(newText);
+      setTimeout(() => {
+        if(e.target) {
+            if (selectionStart !== selectionEnd) {
+                e.target.selectionStart = selectionStart + 1;
+                e.target.selectionEnd = selectionEnd + 1;
+            } else {
+                e.target.selectionStart = e.target.selectionEnd = selectionStart + 1;
+            }
+        }
+      }, 0);
+      return;
+    }
+
+    // 4. Backspace (Smart Delete)
+    if (e.key === 'Backspace' && selectionStart === selectionEnd) {
+        const charBefore = value[selectionStart - 1];
+        const charAfter = value[selectionStart];
+        if (pairs[charBefore] === charAfter) {
+            e.preventDefault();
+            const newText = value.substring(0, selectionStart - 1) + value.substring(selectionEnd + 1);
+            setCode(newText);
+            setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart - 1; }, 0);
+            return;
+        }
+    }
+
+    // 5. Auto-Indentation on Enter
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const textBeforeCursor = value.substring(0, selectionStart);
+      const lines = textBeforeCursor.split('\n');
+      const currentLine = lines[lines.length - 1];
+      
+      const match = currentLine.match(/^(\s*)/);
+      let indent = match ? match[1] : '';
+      
+      // If line ends with `:`, `{` or `[`, add 4 spaces
+      if (currentLine.trimEnd().endsWith(':') || currentLine.trimEnd().endsWith('{') || currentLine.trimEnd().endsWith('[')) {
+        indent += "    ";
+      }
+      
+      // Smart split for brackets
+      const charBefore = value[selectionStart - 1];
+      const charAfter = value[selectionStart];
+      const isBetweenBrackets = (charBefore === '{' && charAfter === '}') || 
+                                (charBefore === '[' && charAfter === ']') || 
+                                (charBefore === '(' && charAfter === ')');
+      
+      if (isBetweenBrackets) {
+          const parentIndent = match ? match[1] : '';
+          const innerIndent = parentIndent + "    ";
+          const newText = value.substring(0, selectionStart) + '\n' + innerIndent + '\n' + parentIndent + value.substring(selectionEnd);
+          setCode(newText);
+          setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1 + innerIndent.length; }, 0);
+          return;
+      }
+
+      const newText = value.substring(0, selectionStart) + '\n' + indent + value.substring(selectionEnd);
+      setCode(newText);
+      setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1 + indent.length; }, 0);
+      return;
+    }
   };
 
   return (
@@ -207,11 +460,16 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
       {/* LEFT: EDITOR & TERMINAL */}
       <div className="flex flex-1 flex-col min-w-0 bg-[#0a0f1e]/40 backdrop-blur-sm relative border-r border-white/5">
             
-            {/* Header / Toolbar */}
-            <div className="min-h-[4rem] px-6 py-4 border-b border-white/5 flex justify-between items-start shrink-0 bg-[#0a0f1e]/80">
+            {/* Header / Toolbar - Z-INDEX INCREASED TO 50 */}
+            <div className="relative z-50 min-h-[4.5rem] px-6 py-4 border-b border-white/5 flex justify-between items-start shrink-0 bg-[#0a0f1e]/90 shadow-xl">
                 <div className="flex flex-col gap-2 min-w-0">
-                    <button onClick={onBack} className="text-slate-500 hover:text-cyan-400 transition-colors flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest group w-fit">
-                        <div className="p-1 rounded bg-white/5 group-hover:bg-white/10"><Icons.Back /></div>
+                    <button 
+                        onClick={onBack} 
+                        className="text-slate-400 hover:text-cyan-400 transition-colors flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest group w-fit hover:bg-white/5 px-2 py-1 rounded-lg"
+                    >
+                        <div className="p-1.5 rounded bg-white/5 group-hover:bg-cyan-500/20 group-hover:text-cyan-400 transition-colors">
+                            <Icons.Back />
+                        </div>
                         <span>Abort Mission</span>
                     </button>
                     <div className="bg-slate-900/50 border border-white/5 rounded-lg p-3 mt-1 max-h-24 overflow-y-auto custom-scrollbar">
@@ -220,11 +478,17 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
                 </div>
                 
                 <div className="flex items-center gap-3 mt-8">
-                    <button onClick={handleRun} disabled={loading} className="px-5 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
+                    {/* MANUAL SAVE BUTTON (Sends isCompleted = False) */}
+                    <button onClick={() => handleSave(false)} disabled={loading} className="px-4 py-2 rounded-lg bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
+                        <Icons.Save />
+                        <span>Save</span>
+                    </button>
+
+                    <button onClick={handleRun} disabled={loading} className="px-5 py-2 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 hover:border-emerald-500/50 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_15px_rgba(16,185,129,0.3)]">
                         {loading ? <span className="animate-spin rounded-full h-3 w-3 border-2 border-emerald-400 border-t-transparent"></span> : <Icons.Run />}
                         <span>Execute</span>
                     </button>
-                    <button onClick={handleAnalyze} disabled={loading} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
+                    <button onClick={handleAnalyze} disabled={loading} className="px-5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50 hover:shadow-[0_0_20px_rgba(37,99,235,0.5)]">
                         <Icons.Analyze />
                         <span>Analyze</span>
                     </button>
@@ -232,7 +496,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
             </div>
             
             {/* Editor Area */}
-            <div className="flex-grow relative flex flex-col group">
+            <div className="flex-grow relative flex flex-col group z-0">
                 <div className="flex-1 relative">
                     <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#050914] border-r border-white/5 text-slate-600 text-xs font-mono text-right pr-3 pt-6 select-none leading-6 z-10 hidden md:block">
                         {code.split('\n').map((_, i) => <div key={i} className="opacity-50">{i + 1}</div>)}
@@ -270,7 +534,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
                                     </div>
                                     {!t.passed && <div className="text-right text-[10px] opacity-70">Exp: {t.expected} / Act: {t.actual}</div>}
                                 </motion.div>
-                            )) : <p className="text-slate-700 italic text-center py-4">// Run code to generate vectors.</p>}
+                            )) : <p className="text-slate-700 italic text-center py-4">// Execute code to run assertions.</p>}
                         </div>
                     )}
                     <div ref={messagesEndRef} />
@@ -278,7 +542,6 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
             </div>
       </div>
 
-      {/* RESIZER */}
       <div className="w-1 bg-white/5 hover:bg-cyan-500 cursor-ew-resize transition-colors z-40" onMouseDown={startResizing} />
 
       {/* RIGHT: VISUALS & CHAT */}
@@ -289,11 +552,11 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
                     <div className="w-12 h-12 mb-4 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20"><div className="text-amber-500"><Icons.Lock /></div></div>
                     <h3 className="text-sm font-bold text-white mb-2 tracking-wide uppercase">Holographic Core Locked</h3>
                     <p className="text-slate-500 mb-6 text-xs leading-relaxed">Upgrade to Commander tier to visualize AST logic structures in real-time 3D space.</p>
-                    <button className="px-6 py-2 rounded bg-gradient-to-r from-amber-600 to-orange-600 text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all">Initialize Upgrade</button>
+                    <button onClick={onUpgrade} className="px-6 py-2 rounded bg-gradient-to-r from-amber-600 to-orange-600 text-white text-xs font-bold uppercase tracking-widest hover:brightness-110 transition-all">Initialize Upgrade</button>
                 </div>
             )}
             
-            {visualData ? <CodeVisualizer data={visualData} /> : (
+            {visualData ? <CodeVisualizer data={visualData} trace={executionTrace} /> : (
                 <div className="absolute inset-0 flex items-center justify-center flex-col opacity-30">
                     <div className="w-24 h-24 border border-dashed border-slate-600 rounded-full animate-spin-slow flex items-center justify-center">
                         <div className="w-20 h-20 border border-slate-700 rounded-full"></div>
@@ -304,7 +567,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
           </div>
           
           <div className="flex-1 min-h-0">
-              <ChatInterface messages={chatMessages} onSend={(t) => {/* Handle Doubt */}} loading={loading} />
+              <ChatInterface messages={chatMessages} onSend={handleChatSend} loading={loading} />
           </div>
       </div>
     </div>

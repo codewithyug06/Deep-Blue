@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
@@ -9,6 +9,7 @@ import io
 import contextlib
 import traceback
 import re
+import asyncio
 
 # --- INTERNAL IMPORTS ---
 from app.engine.rag_agent import ai_tutor
@@ -45,7 +46,8 @@ class CodeRequest(BaseModel):
     session_id: str = "default_user"
     is_premium: bool = False
     mission_id: int = None
-    user_id: int = None 
+    user_id: int = None
+    is_completed: bool = False # NEW: Flag to indicate if tests passed
 
 class WeaknessRequest(BaseModel):
     weakness: str
@@ -65,167 +67,138 @@ def get_password_hash(password):
 def read_root():
     return {"status": "Deep Blue API is running 🔵"}
 
-# --- AUTH ENDPOINTS (SEPARATED) ---
+# --- WEBSOCKET CONNECTION MANAGER ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+
+manager = ConnectionManager()
+
+# --- WEBSOCKET ENDPOINT (Real-time AI Chat) ---
+@app.websocket("/ws/chat")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            payload = json.loads(data)
+            
+            user_input = payload.get("message", "")
+            user_code = payload.get("code", "")
+            session_id = payload.get("session_id", "default")
+            
+            # Non-blocking AI call (Simulated for async flow)
+            response = await asyncio.to_thread(
+                ai_tutor.chat, user_input, user_code, session_id
+            )
+            
+            await manager.send_personal_message(json.dumps({
+                "role": "ai", 
+                "text": response
+            }), websocket)
+            
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket Error: {e}")
+        await manager.send_personal_message(json.dumps({
+            "role": "ai", 
+            "text": ">> CONNECTION INTERRUPTED: Signal Lost."
+        }), websocket)
+
+# --- AUTH ENDPOINTS ---
 
 @app.post("/register")
 def register_user(auth: UserAuth, db: Session = Depends(get_db)):
-    """
-    Creates a new user. Fails if username already exists.
-    """
     username = auth.username
     password = auth.password
-    
-    # Check if user already exists
     existing = db.query(models.User).filter(models.User.username == username).first()
     if existing:
         raise HTTPException(status_code=400, detail="Username already taken.")
-    
-    # Create new user
     hashed_pwd = get_password_hash(password)
     is_premium_status = True if username.lower() == "pro" else False
-    
     new_user = models.User(username=username, hashed_password=hashed_pwd, is_premium=is_premium_status)
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
     return {"message": "Registration successful", "user_id": new_user.id, "is_premium": is_premium_status}
 
 @app.post("/login")
 def login_user(auth: UserAuth, db: Session = Depends(get_db)):
-    """
-    Authenticates an existing user. Fails if user not found or password incorrect.
-    """
     username = auth.username
     password = auth.password
-    
     user = db.query(models.User).filter(models.User.username == username).first()
-    
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
-        
     if not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    # Secret upgrade check for 'pro' username logic (optional)
     if username.lower() == "pro" and not user.is_premium:
         user.is_premium = True
         db.commit()
-
     return {"message": "Login successful", "user_id": user.id, "is_premium": user.is_premium}
 
-@app.post("/verify")
-def verify_session():
-    return {"status": "valid", "message": "Session active"}
-
-@app.post("/upgrade-premium")
-def upgrade_premium(user_id: int, db: Session = Depends(get_db)):
-    user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    user.is_premium = True
-    db.commit()
-    return {"status": "User upgraded to Premium 🌟", "is_premium": True}
-
+# --- PROGRESS ENDPOINT (UPDATED LOGIC) ---
 @app.post("/save-progress")
-def save_progress(user_id: int, mission_id: int, code: str, db: Session = Depends(get_db)):
+def save_progress(request: CodeRequest, db: Session = Depends(get_db)):
+    """
+    Saves user progress.
+    Only marks as 'is_completed' if explicitly requested (when tests pass).
+    Otherwise, just saves the code draft.
+    """
+    user_id = request.user_id
+    mission_id = request.mission_id
+    code = request.code
+    completed_status = request.is_completed
+
+    if not user_id or not mission_id:
+        raise HTTPException(status_code=400, detail="Missing user_id or mission_id")
+
     existing = db.query(models.UserProgress).filter_by(user_id=user_id, mission_id=mission_id).first()
+    
     if existing:
         existing.code_solution = code
-        existing.is_completed = True
+        # Only upgrade status to True, never downgrade to False if already completed
+        if completed_status:
+            existing.is_completed = True
     else:
         progress = models.UserProgress(
             user_id=user_id, 
             mission_id=mission_id, 
-            is_completed=True, 
+            is_completed=completed_status, # False for manual save, True for auto-complete
             code_solution=code
         )
         db.add(progress)
+    
     db.commit()
-    return {"status": "Mission Accomplished & Saved 💾"}
+    return {"status": "Progress Saved 💾"}
 
-# --- AI & PEDAGOGICAL ENDPOINTS ---
+# --- GET PROGRESS ENDPOINT (NEW) ---
+@app.get("/get-progress")
+def get_progress(user_id: int, mission_id: int, db: Session = Depends(get_db)):
+    """
+    Fetches the saved code for a specific user and mission.
+    """
+    progress = db.query(models.UserProgress).filter_by(user_id=user_id, mission_id=mission_id).first()
+    if progress:
+        return {"code": progress.code_solution, "is_completed": progress.is_completed}
+    return {"code": None, "is_completed": False}
 
-@app.post("/generate-mission")
-async def generate_adaptive_mission(request: WeaknessRequest):
-    try:
-        mission_data = ai_tutor.generate_custom_mission(request.weakness)
-        return mission_data
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/explain-diff")
-async def explain_code_diff(request: DiffRequest):
-    try:
-        explanation = ai_tutor.explain_logic_diff(request.code, request.mission_description)
-        return {"diff_explanation": explanation}
-    except Exception as e:
-        return {"diff_explanation": "Could not generate diff analysis."}
-
-# --- EXECUTION & TEST ENGINE ---
-
+# --- EXECUTION ENGINE (DEPRECATED/LEGACY) ---
 @app.post("/execute")
-async def execute_code(request: CodeRequest):
-    forbidden = ["import os", "import subprocess", "open(", "remove(", "rmdir"]
-    if any(bad in request.code for bad in forbidden):
-        return {"output": "⚠️ Security Alert: File system access is restricted."}
+async def execute_code_legacy(request: CodeRequest):
+    return {"output": "⚠️ Server-side execution is disabled. Please use the client-side runner."}
 
-    output_buffer = io.StringIO()
-    try:
-        with contextlib.redirect_stdout(output_buffer):
-            safe_globals = {"__builtins__": __builtins__}
-            exec(request.code, safe_globals)
-            
-            test_results = []
-            if request.mission_id:
-                try:
-                    with open(os.path.join("app", "data", "missions.json"), "r") as f:
-                        data = json.load(f)
-                    all_missions = []
-                    if isinstance(data, dict):
-                        for cat in data: 
-                            category_missions = data[cat] if isinstance(data[cat], list) else []
-                            all_missions.extend([m for m in category_missions if isinstance(m, dict)])
-                    elif isinstance(data, list):
-                        all_missions = data
-
-                    mission = next((m for m in all_missions if m.get("id") == request.mission_id), None)
-
-                    if mission and "test_cases" in mission:
-                        match = re.search(r"def\s+(\w+)\(", request.code)
-                        if match:
-                            func_name = match.group(1)
-                            user_func = safe_globals.get(func_name)
-                            if user_func:
-                                for i, case in enumerate(mission["test_cases"]):
-                                    inputs = case["input"]
-                                    expected = case["expected"]
-                                    try:
-                                        result = user_func(*inputs)
-                                        passed = result == expected
-                                        test_results.append({
-                                            "id": i + 1,
-                                            "input": str(inputs),
-                                            "expected": str(expected),
-                                            "actual": str(result),
-                                            "passed": passed
-                                        })
-                                    except Exception as e:
-                                        test_results.append({"id": i+1, "passed": False, "actual": str(e)})
-                        else:
-                             test_results.append({"id": 0, "passed": False, "actual": "No function definition found."})
-                except Exception as e:
-                    print(f"Test Runner Error: {e}")
-
-        return {
-            "output": output_buffer.getvalue(),
-            "test_results": test_results
-        }
-    except Exception:
-        return {"output": traceback.format_exc()}
-    finally:
-        output_buffer.close()
-
+# --- ANALYZE ENDPOINT (For 3D Visuals) ---
 @app.post("/analyze")
 async def analyze_code(request: CodeRequest):
     try:
@@ -236,32 +209,8 @@ async def analyze_code(request: CodeRequest):
     except Exception as e:
         visual_data = {"error": str(e), "nodes": [], "links": []}
     
-    ai_feedback = ""
-    if request.user_input or request.code:
-        try:
-            ai_feedback = ai_tutor.chat(request.user_input, user_code=request.code, session_id=request.session_id)
-        except Exception as e:
-            ai_feedback = f"AI Error: {str(e)}"
-
-    vibration_pattern = []
-    if request.is_premium:
-        if visual_data and "error" in visual_data:
-            vibration_pattern = [100, 50, 100, 50, 100]
-        elif visual_data and "nodes" in visual_data:
-            node_types = [n.get("type", "") for n in visual_data["nodes"]]
-            if "loop" in node_types:
-                vibration_pattern = [50, 200, 50, 200] 
-            elif "decision" in node_types:
-                vibration_pattern = [50, 300, 50]
-            elif "function" in node_types:
-                vibration_pattern = [300]
-            else:
-                vibration_pattern = [50]
-
     return {
         "visual_data": visual_data,
-        "ai_feedback": ai_feedback,
-        "vibration_pattern": vibration_pattern,
         "premium_locked": not request.is_premium
     }
 

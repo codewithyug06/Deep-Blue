@@ -1,6 +1,7 @@
-import React, { useRef, Suspense, useState, useEffect } from 'react';
+import React, { useRef, Suspense, useState, useEffect, useMemo } from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Text, Stars, Html } from '@react-three/drei';
+import { XR, VRButton, Controllers, Hands } from '@react-three/xr'; // Fixed Import
 import * as THREE from 'three';
 
 // --- Configuration for Node Styling ---
@@ -132,26 +133,36 @@ const GraphLink = React.memo(({ startPos, endPos }) => {
     );
 });
 
-const PulseParticle = React.memo(({ startPos, endPos }) => {
+// "Data Flow" Particle
+const PulseParticle = React.memo(({ startPos, endPos, active }) => {
     const meshRef = useRef();
-    const [progress, setProgress] = useState(Math.random());
+    const [progress, setProgress] = useState(0);
+    
     useFrame((state, delta) => {
-        if (!meshRef.current || !startPos || !endPos) return;
-        const newProgress = (progress + delta * 0.8) % 1;
+        if (!active || !meshRef.current || !startPos || !endPos) {
+            if(meshRef.current) meshRef.current.visible = false;
+            return;
+        }
+        
+        meshRef.current.visible = true;
+        let newProgress = progress + delta * 2.0; // Speed of data flow
+        if (newProgress > 1) newProgress = 0; // Loop or reset
         setProgress(newProgress);
+
         meshRef.current.position.x = THREE.MathUtils.lerp(startPos[0], endPos[0], newProgress);
         meshRef.current.position.y = THREE.MathUtils.lerp(startPos[1], endPos[1], newProgress);
         meshRef.current.position.z = THREE.MathUtils.lerp(startPos[2], endPos[2], newProgress);
     });
+
     return (
         <mesh ref={meshRef}>
-            <sphereGeometry args={[0.06, 8, 8]} />
-            <meshBasicMaterial color="#38bdf8" transparent opacity={0.9} />
+            <sphereGeometry args={[0.08, 8, 8]} />
+            <meshBasicMaterial color="#ffff00" transparent opacity={1} />
         </mesh>
     );
 });
 
-const GraphNode = React.memo(({ position, type, label }) => {
+const GraphNode = React.memo(({ position, type, label, isActive }) => {
     const style = NODE_STYLE_MAP[type?.toLowerCase()] || NODE_STYLE_MAP.default;
     const meshRef = useRef();
     const [hovered, setHover] = useState(false);
@@ -160,6 +171,14 @@ const GraphNode = React.memo(({ position, type, label }) => {
         if (meshRef.current) {
             meshRef.current.rotation.x += delta * 0.2;
             meshRef.current.rotation.y += delta * 0.3;
+            
+            // Pulse effect if active (execution visiting this node)
+            if (isActive) {
+                const scale = 1 + Math.sin(state.clock.elapsedTime * 10) * 0.1;
+                meshRef.current.scale.set(scale, scale, scale);
+            } else {
+                meshRef.current.scale.set(1, 1, 1);
+            }
         }
     });
 
@@ -180,9 +199,9 @@ const GraphNode = React.memo(({ position, type, label }) => {
             >
                 <Geometry />
                 <meshStandardMaterial 
-                    color={hovered ? '#ffffff' : style.color} 
-                    emissive={style.color} 
-                    emissiveIntensity={hovered ? 2 : 1.2}
+                    color={isActive ? '#ffff00' : (hovered ? '#ffffff' : style.color)} 
+                    emissive={isActive ? '#ff0000' : style.color} 
+                    emissiveIntensity={isActive ? 3 : (hovered ? 2 : 1.2)}
                     roughness={0.2}
                     metalness={0.8}
                 />
@@ -215,17 +234,54 @@ const GraphNode = React.memo(({ position, type, label }) => {
     );
 });
 
-const DynamicASTVisualization = ({ data }) => {
+const DynamicASTVisualization = ({ data, trace }) => {
     const positionedNodes = useForceLayout(data.nodes, data.links);
+    const [activeNodeId, setActiveNodeId] = useState(null);
+    const [activeLink, setActiveLink] = useState(null); // For particle flow
+
+    // Trace Playback Logic
+    useEffect(() => {
+        if (!trace || trace.length === 0) return;
+        
+        let step = 0;
+        const interval = setInterval(() => {
+            if (step >= trace.length) {
+                clearInterval(interval);
+                setActiveNodeId(null);
+                setActiveLink(null);
+                return;
+            }
+
+            const lineNo = trace[step];
+            // Find node corresponding to this line number
+            // Note: AST parsing logic in backend needs to ensure 'lineno' is sent.
+            const node = positionedNodes.find(n => n.lineno === lineNo);
+            
+            if (node) {
+                // If we jumped from one node to another, trigger particle
+                if (activeNodeId !== null && activeNodeId !== node.id) {
+                    setActiveLink({ source: activeNodeId, target: node.id });
+                }
+                setActiveNodeId(node.id);
+            }
+            step++;
+        }, 500); // 0.5s per step
+
+        return () => clearInterval(interval);
+    }, [trace, positionedNodes]);
+
     const positionedNodesMap = new Map(positionedNodes.map(n => [n.id, n]));
     
     const renderableLinks = data.links.map(link => {
         const sourceNode = positionedNodesMap.get(link.source);
         const targetNode = positionedNodesMap.get(link.target);
+        const isFlowing = activeLink && activeLink.source === link.source && activeLink.target === link.target;
+        
         return {
             key: `${link.source}-${link.target}`,
             startPos: sourceNode ? sourceNode.position : null,
             endPos: targetNode ? targetNode.position : null,
+            active: isFlowing
         };
     }).filter(link => link.startPos && link.endPos);
 
@@ -237,21 +293,33 @@ const DynamicASTVisualization = ({ data }) => {
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
             {positionedNodes.map((node) => (
-                <GraphNode key={node.id} position={node.position} type={node.type} label={node.label} />
+                <GraphNode 
+                    key={node.id} 
+                    position={node.position} 
+                    type={node.type} 
+                    label={node.label} 
+                    isActive={node.id === activeNodeId} 
+                />
             ))}
 
             {renderableLinks.map((link) => (
                 <React.Fragment key={link.key}>
                     <GraphLink startPos={link.startPos} endPos={link.endPos} />
-                    <PulseParticle startPos={link.startPos} endPos={link.endPos} />
+                    {/* "Data Flow" Particle triggered by execution trace */}
+                    <PulseParticle startPos={link.startPos} endPos={link.endPos} active={link.active} />
                 </React.Fragment>
             ))}
+            
+            {/* VR Controllers & Hands */}
+            <Controllers />
+            <Hands />
+            
             <OrbitControls enableDamping dampingFactor={0.05} />
         </>
     );
 };
 
-const CodeVisualizer = ({ data }) => {
+const CodeVisualizer = ({ data, trace }) => {
   const isValidData = data && data.nodes && data.nodes.length > 0 && !data.error;
 
   if (!isValidData) {
@@ -270,10 +338,15 @@ const CodeVisualizer = ({ data }) => {
   return (
     <div style={{ height: '100%', width: '100%', position: 'relative' }}>
       <Legend />
+      {/* VR/WebXR Button Overlay */}
+      <VRButton className="absolute bottom-4 right-4 z-50 px-4 py-2 bg-blue-600 rounded text-white text-xs font-bold uppercase tracking-widest shadow-lg" />
+      
       <Canvas camera={{ position: [0, 0, 8], fov: 60 }} style={{ background: '#00000000' }}>
-        <Suspense fallback={<Text color="white">Loading 3D Scene...</Text>}>
-          <DynamicASTVisualization data={data} /> 
-        </Suspense>
+        <XR>
+            <Suspense fallback={<Text color="white">Loading 3D Scene...</Text>}>
+              <DynamicASTVisualization data={data} trace={trace} /> 
+            </Suspense>
+        </XR>
       </Canvas>
     </div>
   );

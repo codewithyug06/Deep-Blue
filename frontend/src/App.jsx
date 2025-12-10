@@ -1,21 +1,37 @@
-// frontend/src/App.jsx
 import React, { useState, useEffect } from 'react';
 import Dashboard from './components/Dashboard';
 import MainMenu from './components/MainMenu'; 
 import LoginModal from './components/LoginModal';
+import HomeScene from './three-scene/HomeScene'; 
+import { AnimatePresence, motion } from 'framer-motion';
 
 function App() {
   const [user, setUser] = useState(null); 
   const [currentScreen, setCurrentScreen] = useState('menu'); 
   const [activeMission, setActiveMission] = useState(null);
+  const [menuViewMode, setMenuViewMode] = useState('missions'); // Lifted state for persistence
 
-  // Check LocalStorage on load
+  // --- PERSISTENCE & HISTORY HANDLING ---
   useEffect(() => {
+    // 1. Load User
     const savedUser = localStorage.getItem('deepblue_user');
     if (savedUser) {
       setUser(JSON.parse(savedUser));
     }
-  }, []);
+
+    // 2. Handle Browser Back Button (Popstate)
+    const handlePopState = (event) => {
+      // If user presses browser back button while in dashboard, go to menu
+      if (currentScreen === 'dashboard') {
+        // We just update state, we don't need to push/pop history again to avoid loops
+        setActiveMission(null);
+        setCurrentScreen('menu');
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [currentScreen]);
 
   const handleLogin = (userData) => {
     setUser(userData);
@@ -26,16 +42,22 @@ function App() {
     setUser(null);
     localStorage.removeItem('deepblue_user');
     setCurrentScreen('menu');
+    setMenuViewMode('missions'); // Reset view on logout
   };
 
   const handleStartMission = (mission) => {
     setActiveMission(mission);
     setCurrentScreen('dashboard');
+    // Push state so browser "Back" button works
+    window.history.pushState({ screen: 'dashboard' }, '', '#mission');
   };
 
+  // Optimized for speed: Pure state update for UI, replace history to keep clean
   const handleBackToMenu = () => {
     setActiveMission(null);
     setCurrentScreen('menu');
+    // Replace current history entry to reflect menu state without reloading
+    window.history.replaceState({ screen: 'menu' }, '', '#menu');
   };
 
   const handleUserUpgrade = () => {
@@ -45,42 +67,67 @@ function App() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-[#020617] text-white selection:bg-blue-500/30">
+    <div className="relative min-h-screen overflow-hidden bg-[#020617] text-white selection:bg-blue-500/30 font-sans">
       
-      {/* --- GLOBAL BACKGROUND (PERSISTENT) --- */}
-      <div className="fixed inset-0 z-0 pointer-events-none">
-         <div className="absolute top-0 left-0 w-full h-full bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#0f172a] via-[#020617] to-black opacity-80"></div>
-         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-10 mix-blend-overlay"></div>
-         {/* Subtle moving glow for atmosphere */}
-         <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-600/10 rounded-full blur-3xl animate-pulse"></div>
-         <div className="absolute top-1/2 left-1/4 w-64 h-64 bg-cyan-500/5 rounded-full blur-3xl"></div>
-      </div>
+      {/* 3D BACKGROUND LAYER */}
+      <AnimatePresence>
+        {user && (
+          <motion.div 
+            initial={{ opacity: 0 }} 
+            animate={{ opacity: 1 }} 
+            transition={{ duration: 1.5 }}
+            className="fixed inset-0 z-0"
+          >
+            <HomeScene />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* --- APP CONTENT --- */}
+      {/* APP CONTENT */}
       <div className="relative z-10 h-full">
         {!user ? (
           <LoginModal onLogin={handleLogin} />
         ) : (
-          <>
+          <AnimatePresence mode='wait'>
             {currentScreen === 'menu' && (
-              <MainMenu 
-                user={user} 
-                onSelectMission={handleStartMission} 
-                onLogout={handleLogout}
-              />
+              <motion.div 
+                key="menu"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 1.02 }}
+                transition={{ duration: 0.3 }} // Faster transition
+                className="h-full"
+              >
+                <MainMenu 
+                  user={user} 
+                  onSelectMission={handleStartMission} 
+                  onLogout={handleLogout}
+                  viewMode={menuViewMode}
+                  setViewMode={setMenuViewMode}
+                />
+              </motion.div>
             )}
             
             {currentScreen === 'dashboard' && (
-              <Dashboard 
-                user={user} 
-                initialCode={activeMission?.starter_code} 
-                missionId={activeMission?.id}
-                missionDesc={activeMission?.description}
-                onBack={handleBackToMenu}
-                onUpgrade={handleUserUpgrade}
-              />
+              <motion.div 
+                key="dashboard"
+                initial={{ opacity: 0, x: 20 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: -20 }}
+                transition={{ duration: 0.3 }} // Faster transition
+                className="h-full"
+              >
+                <Dashboard 
+                  user={user} 
+                  initialCode={activeMission?.starter_code} 
+                  missionId={activeMission?.id}
+                  missionDesc={activeMission?.description}
+                  onBack={handleBackToMenu}
+                  onUpgrade={handleUserUpgrade}
+                />
+              </motion.div>
             )}
-          </>
+          </AnimatePresence>
         )}
       </div>
     </div>

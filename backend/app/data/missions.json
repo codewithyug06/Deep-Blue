@@ -4,13 +4,13 @@
       "id": 120,
       "title": "CR Decomp: Reconstruction",
       "difficulty": "Medium",
-      "description": "We need to verify our matrix compression. You have a Column matrix 'C' and a Row matrix 'R'. Your mission is to reconstruct a specific single cell of the original matrix A at row 'i' and column 'j'. This is done by calculating the dot product of row 'i' from C and column 'j' from R.",
+      "description": "We need to verify our matrix compression. You have a Column vector 'C' and a Row vector 'R' (both stored as simple 1D lists). Your mission is to reconstruct a specific single cell of the original matrix A at row 'i' and column 'j'. This is equivalent to multiplying the i-th element of C by the j-th element of R.",
       "roles": {
-        "architect": "Logic: Multiply row i of C by column j of R (scalar logic for 1x1).",
+        "architect": "Logic: It is an outer product operation. Multiply the value at C[i] by the value at R[j].",
         "translator": "Syntax: return C[i] * R[j]",
-        "debugger": "Check: Indices."
+        "debugger": "Check: C and R are 1D lists, so no nested loops are needed."
       },
-      "starter_code": "def reconstruct_cell(C, R, i, j):\n    # Rebuild A[i][j]\n    return -1",
+      "starter_code": "def reconstruct_cell(C, R, i, j):\n    # Rebuild A[i][j] by multiplying the corresponding vector elements\n    return C[i] * R[j]",
       "solution_keywords": [
         "*",
         "["
@@ -144,6 +144,57 @@
           ],
           "expected": 0
         }
+      ]
+    },
+    {
+      "id": 402,
+      "title": "Vector Addition",
+      "difficulty": "Easy",
+      "description": "A physics engine needs to combine two force vectors. Write a function `add_vectors(v1, v2)` that takes two lists of equal length (e.g., [x1, y1] and [x2, y2]) and returns a new list where each element is the sum of the corresponding elements from v1 and v2.",
+      "roles": {
+        "architect": "Logic: Element-wise addition.",
+        "translator": "Syntax: [x + y for x, y in zip(v1, v2)]",
+        "debugger": "Check: List comprehension or loop."
+      },
+      "starter_code": "def add_vectors(v1, v2):\n    # Add vectors component-wise\n    return []",
+      "solution_keywords": ["zip", "+", "for"],
+      "test_cases": [
+        { "input": [[1, 2], [3, 4]], "expected": [4, 6] },
+        { "input": [[10, -5], [0, 5]], "expected": [10, 0] }
+      ]
+    },
+    {
+      "id": 403,
+      "title": "Matrix Transpose (2x2)",
+      "difficulty": "Medium",
+      "description": "We need to rotate our data frame. Write a function `transpose_2x2(matrix)` that takes a 2x2 matrix (a list of 2 lists) and returns its transpose. The element at [0][1] should swap with [1][0].",
+      "roles": {
+        "architect": "Logic: Swap rows and columns.",
+        "translator": "Syntax: [[m[0][0], m[1][0]], [m[0][1], m[1][1]]]",
+        "debugger": "Check: Nested list structure."
+      },
+      "starter_code": "def transpose_2x2(matrix):\n    # Return transpose\n    return []",
+      "solution_keywords": ["matrix[0][1]", "matrix[1][0]"],
+      "test_cases": [
+        { "input": [[[1, 2], [3, 4]]], "expected": [[1, 3], [2, 4]] },
+        { "input": [[[0, 1], [1, 0]]], "expected": [[0, 1], [1, 0]] }
+      ]
+    },
+    {
+      "id": 404,
+      "title": "Scalar Multiplication",
+      "difficulty": "Easy",
+      "description": "Scale up! Write a function `scale_vector(vector, scalar)` that takes a list of numbers and a single multiplier. Return a new list where every number in the vector is multiplied by the scalar.",
+      "roles": {
+        "architect": "Logic: Multiply every element by k.",
+        "translator": "Syntax: [x * scalar for x in vector]",
+        "debugger": "Check: List comprehension."
+      },
+      "starter_code": "def scale_vector(vector, scalar):\n    # Scale it\n    return []",
+      "solution_keywords": ["*", "for"],
+      "test_cases": [
+        { "input": [[1, 2, 3], 3], "expected": [3, 6, 9] },
+        { "input": [[-1, 5], -1], "expected": [1, -5] }
       ]
     }
   ],
@@ -323,6 +374,57 @@
           "expected": 5.0
         }
       ]
+    },
+    {
+      "id": 502,
+      "title": "Stats: Median Finder",
+      "difficulty": "Medium",
+      "description": "The mean can be skewed by outliers. Write a function `find_median(numbers)` that takes a list of *sorted* numbers (odd length) and returns the middle element.",
+      "roles": {
+        "architect": "Logic: Find the middle index.",
+        "translator": "Syntax: return numbers[len(numbers) // 2]",
+        "debugger": "Check: Integer division."
+      },
+      "starter_code": "def find_median(numbers):\n    # Find middle\n    return -1",
+      "solution_keywords": ["len", "//", "2"],
+      "test_cases": [
+        { "input": [[1, 2, 3, 4, 5]], "expected": 3 },
+        { "input": [[10, 20, 30]], "expected": 20 }
+      ]
+    },
+    {
+      "id": 503,
+      "title": "Clean: Remove Outliers",
+      "difficulty": "Hard",
+      "description": "Data cleaning in progress. Write a function `clean_data(data, cap)` that replaces any value in the list `data` that is greater than `cap` with the value of `cap`. Return the modified list.",
+      "roles": {
+        "architect": "Logic: Iterate and cap values.",
+        "translator": "Syntax: [min(x, cap) for x in data]",
+        "debugger": "Check: min() function usage."
+      },
+      "starter_code": "def clean_data(data, cap):\n    # Cap values\n    return []",
+      "solution_keywords": ["min", "for"],
+      "test_cases": [
+        { "input": [[10, 50, 100], 40], "expected": [10, 40, 40] },
+        { "input": [[1, 2, 3], 5], "expected": [1, 2, 3] }
+      ]
+    },
+    {
+      "id": 504,
+      "title": "Stats: Range Calculation",
+      "difficulty": "Easy",
+      "description": "Measure the spread. Write a function `calc_range(numbers)` that returns the difference between the maximum and minimum values in a list.",
+      "roles": {
+        "architect": "Logic: Max minus Min.",
+        "translator": "Syntax: return max(numbers) - min(numbers)",
+        "debugger": "Check: Built-in functions."
+      },
+      "starter_code": "def calc_range(numbers):\n    # Max - Min\n    return -1",
+      "solution_keywords": ["max", "min", "-"],
+      "test_cases": [
+        { "input": [[10, 2, 5, 8]], "expected": 8 },
+        { "input": [[5, 5, 5]], "expected": 0 }
+      ]
     }
   ],
   "Machine Learning": [
@@ -469,8 +571,41 @@
           "expected": 60.0
         }
       ]
+    },
+    {
+      "id": 660,
+      "title": "Metric: Accuracy Score",
+      "difficulty": "Easy",
+      "description": "Calculate the accuracy of a model. Write `calc_accuracy(correct, total)` that returns the percentage (0.0 to 1.0) of correct predictions. Be careful not to divide by zero (return 0 if total is 0).",
+      "roles": {
+        "architect": "Logic: Division with safety check.",
+        "translator": "Syntax: return correct / total if total > 0 else 0",
+        "debugger": "Check: Division by zero."
+      },
+      "starter_code": "def calc_accuracy(correct, total):\n    # Return float\n    return 0.0",
+      "solution_keywords": ["/", "if", "else"],
+      "test_cases": [
+        { "input": [80, 100], "expected": 0.8 },
+        { "input": [5, 0], "expected": 0 }
+      ]
+    },
+    {
+      "id": 661,
+      "title": "Loss: MSE Step",
+      "difficulty": "Medium",
+      "description": "Calculate the Squared Error for a single prediction. Write `squared_error(target, prediction)` which returns the square of the difference between the true `target` and the `prediction`.",
+      "roles": {
+        "architect": "Logic: (target - prediction)^2.",
+        "translator": "Syntax: return (target - prediction) ** 2",
+        "debugger": "Check: Exponent operator (**)."
+      },
+      "starter_code": "def squared_error(target, prediction):\n    # Squared difference\n    return -1",
+      "solution_keywords": ["-", "**", "2"],
+      "test_cases": [
+        { "input": [10, 8], "expected": 4 },
+        { "input": [5, 5], "expected": 0 }
+      ]
     }
-    
   ],
   "Data Structures & Algorithms": [
     {
@@ -1394,6 +1529,283 @@
           ],
           "expected": "Light"
       }
+      ]
+    }
+  ],
+  "Interview Bootcamp": [
+    {
+      "id": 801,
+      "title": "Two Sum (HashMap)",
+      "difficulty": "Easy",
+      "description": "Given an array of integers `nums` and an integer `target`, return indices of the two numbers such that they add up to `target`. You may assume that each input would have exactly one solution, and you may not use the same element twice.",
+      "roles": {
+        "architect": "Use a HashMap to store values and indices.",
+        "translator": "Calculate complement and check map.",
+        "debugger": "Handle edge cases (no solution not possible per prompt)."
+      },
+      "starter_code": "def two_sum(nums, target):\n    # Use a dictionary\n    return []",
+      "solution_keywords": ["dict", "enumerate", "in"],
+      "test_cases": [
+        { "input": [[2, 7, 11, 15], 9], "expected": [0, 1] },
+        { "input": [[3, 2, 4], 6], "expected": [1, 2] },
+        { "input": [[3, 3], 6], "expected": [0, 1] }
+      ]
+    },
+    {
+      "id": 802,
+      "title": "Valid Anagram",
+      "difficulty": "Easy",
+      "description": "Given two strings `s` and `t`, return `True` if `t` is an anagram of `s`, and `False` otherwise. An Anagram is a word or phrase formed by rearranging the letters of a different word or phrase.",
+      "roles": {
+        "architect": "Compare character counts.",
+        "translator": "Use sorted() or a frequency map.",
+        "debugger": "Different lengths return False immediately."
+      },
+      "starter_code": "def is_anagram(s, t):\n    # Check characters\n    return False",
+      "solution_keywords": ["sorted", "len", "=="],
+      "test_cases": [
+        { "input": ["anagram", "nagaram"], "expected": true },
+        { "input": ["rat", "car"], "expected": false }
+      ]
+    },
+    {
+      "id": 803,
+      "title": "Max Subarray Sum",
+      "difficulty": "Medium",
+      "description": "Given an integer array `nums`, find the subarray which has the largest sum and return its sum (Kadane's Algorithm).",
+      "roles": {
+        "architect": "Track current sum and max sum.",
+        "translator": "Iterate, reset current if negative.",
+        "debugger": "Handle all negative numbers."
+      },
+      "starter_code": "def max_subarray(nums):\n    # Kadane's Algorithm\n    return 0",
+      "solution_keywords": ["max", "for"],
+      "test_cases": [
+        { "input": [[-2,1,-3,4,-1,2,1,-5,4]], "expected": 6 },
+        { "input": [[1]], "expected": 1 },
+        { "input": [[5,4,-1,7,8]], "expected": 23 }
+      ]
+    },
+    {
+      "id": 804,
+      "title": "Valid Parentheses",
+      "difficulty": "Easy",
+      "description": "Given a string `s` containing just the characters '(', ')', '{', '}', '[' and ']', determine if the input string is valid. Open brackets must be closed by the same type of brackets in the correct order.",
+      "roles": {
+        "architect": "Use a stack to track open brackets.",
+        "translator": "Push open, pop match on close.",
+        "debugger": "Check empty stack at end."
+      },
+      "starter_code": "def is_valid(s):\n    # Use stack\n    return True",
+      "solution_keywords": ["stack", "pop", "append", "dict"],
+      "test_cases": [
+        { "input": ["()"], "expected": true },
+        { "input": ["()[]{}"], "expected": true },
+        { "input": ["(]"], "expected": false }
+      ]
+    },
+    {
+      "id": 805,
+      "title": "Climbing Stairs (DP)",
+      "difficulty": "Easy",
+      "description": "You are climbing a staircase. It takes `n` steps to reach the top. Each time you can either climb 1 or 2 steps. In how many distinct ways can you climb to the top?",
+      "roles": {
+        "architect": "Dynamic Programming or Fibonacci sequence.",
+        "translator": "ways(n) = ways(n-1) + ways(n-2).",
+        "debugger": "Base cases n=1, n=2."
+      },
+      "starter_code": "def climb_stairs(n):\n    # DP logic\n    return 0",
+      "solution_keywords": ["range", "+"],
+      "test_cases": [
+        { "input": [2], "expected": 2 },
+        { "input": [3], "expected": 3 },
+        { "input": [5], "expected": 8 }
+      ]
+    },
+    {
+      "id": 806,
+      "title": "Binary Search",
+      "difficulty": "Easy",
+      "description": "Given an array of integers `nums` which is sorted in ascending order, and an integer `target`, write a function to search `target` in `nums`. If `target` exists, then return its index. Otherwise, return -1.",
+      "roles": {
+        "architect": "Divide and conquer.",
+        "translator": "Midpoint calculation loop.",
+        "debugger": "While loop condition (<=)."
+      },
+      "starter_code": "def search(nums, target):\n    # Binary search\n    return -1",
+      "solution_keywords": ["while", "mid", "<", ">"],
+      "test_cases": [
+        { "input": [[-1,0,3,5,9,12], 9], "expected": 4 },
+        { "input": [[-1,0,3,5,9,12], 2], "expected": -1 }
+      ]
+    },
+    {
+      "id": 807,
+      "title": "Stock Buy Sell",
+      "difficulty": "Easy",
+      "description": "You are given an array `prices`. You want to maximize your profit by choosing a single day to buy one stock and choosing a different day in the future to sell that stock. Return the maximum profit you can achieve.",
+      "roles": {
+        "architect": "Track min price and max profit.",
+        "translator": "Iterate prices, update min, calc diff.",
+        "debugger": "If no profit possible return 0."
+      },
+      "starter_code": "def max_profit(prices):\n    # Sliding window logic\n    return 0",
+      "solution_keywords": ["min", "max", "-"],
+      "test_cases": [
+        { "input": [[7,1,5,3,6,4]], "expected": 5 },
+        { "input": [[7,6,4,3,1]], "expected": 0 }
+      ]
+    },
+    {
+      "id": 808,
+      "title": "Longest Substring Unique",
+      "difficulty": "Medium",
+      "description": "Given a string `s`, find the length of the longest substring without repeating characters.",
+      "roles": {
+        "architect": "Sliding window with set/map.",
+        "translator": "Expand right, shrink left if duplicate.",
+        "debugger": "Update max len every step."
+      },
+      "starter_code": "def length_of_longest_substring(s):\n    # Sliding window\n    return 0",
+      "solution_keywords": ["set", "max", "while"],
+      "test_cases": [
+        { "input": ["abcabcbb"], "expected": 3 },
+        { "input": ["bbbbb"], "expected": 1 },
+        { "input": ["pwwkew"], "expected": 3 }
+      ]
+    },
+    {
+      "id": 809,
+      "title": "Product Except Self",
+      "difficulty": "Medium",
+      "description": "Given an integer array `nums`, return an array `answer` such that `answer[i]` is equal to the product of all the elements of `nums` except `nums[i]`. Write an algorithm that runs in O(n) time and without using the division operation.",
+      "roles": {
+        "architect": "Prefix and Suffix products.",
+        "translator": "Two passes: left to right, then right to left.",
+        "debugger": "Initialize array with 1s."
+      },
+      "starter_code": "def product_except_self(nums):\n    # Prefix/Suffix\n    return []",
+      "solution_keywords": ["range", "*", "-1"],
+      "test_cases": [
+        { "input": [[1,2,3,4]], "expected": [24,12,8,6] },
+        { "input": [[-1,1,0,-3,3]], "expected": [0,0,9,0,0] }
+      ]
+    },
+    {
+      "id": 810,
+      "title": "Merge Intervals",
+      "difficulty": "Medium",
+      "description": "Given an array of `intervals` where intervals[i] = [start, end], merge all overlapping intervals, and return an array of the non-overlapping intervals that cover all the intervals in the input.",
+      "roles": {
+        "architect": "Sort then iterate.",
+        "translator": "If current start <= prev end, merge.",
+        "debugger": "Sort by start time first."
+      },
+      "starter_code": "def merge(intervals):\n    # Sort and merge\n    return []",
+      "solution_keywords": ["sort", "append", "max"],
+      "test_cases": [
+        { "input": [[[1,3],[2,6],[8,10],[15,18]]], "expected": [[1,6],[8,10],[15,18]] },
+        { "input": [[[1,4],[4,5]]], "expected": [[1,5]] }
+      ]
+    },
+    {
+      "id": 811,
+      "title": "Group Anagrams",
+      "difficulty": "Medium",
+      "description": "Given an array of strings `strs`, group the anagrams together. You can return the answer in any order.",
+      "roles": {
+        "architect": "HashMap with sorted string key.",
+        "translator": "Dict values append originals.",
+        "debugger": "Tuple key for dictionary."
+      },
+      "starter_code": "def group_anagrams(strs):\n    # Hash map grouping\n    return []",
+      "solution_keywords": ["dict", "sorted", "join", "values"],
+      "test_cases": [
+        { "input": [["eat","tea","tan","ate","nat","bat"]], "expected": [["eat","tea","ate"],["tan","nat"],["bat"]] }
+      ]
+    },
+    {
+      "id": 812,
+      "title": "Top K Frequent",
+      "difficulty": "Medium",
+      "description": "Given an integer array `nums` and an integer `k`, return the `k` most frequent elements.",
+      "roles": {
+        "architect": "Frequency map then heap/sort.",
+        "translator": "Count items, sort by count descending.",
+        "debugger": "Slice top k."
+      },
+      "starter_code": "def top_k_frequent(nums, k):\n    # Count and sort\n    return []",
+      "solution_keywords": ["dict", "sorted", "lambda", "[:k]"],
+      "test_cases": [
+        { "input": [[1,1,1,2,2,3], 2], "expected": [1,2] },
+        { "input": [[1], 1], "expected": [1] }
+      ]
+    },
+    {
+      "id": 813,
+      "title": "Coin Change (DP)",
+      "difficulty": "Medium",
+      "description": "You are given an integer array `coins` representing coins of different denominations and an integer `amount`. Return the fewest number of coins that you need to make up that amount. If that amount of money cannot be made up by any combination of the coins, return -1.",
+      "roles": {
+        "architect": "Bottom-up DP.",
+        "translator": "dp[i] = min(dp[i], dp[i-c] + 1)",
+        "debugger": "Initialize DP with amount+1."
+      },
+      "starter_code": "def coin_change(coins, amount):\n    # DP approach\n    return -1",
+      "solution_keywords": ["float", "min", "range"],
+      "test_cases": [
+        { "input": [[1,2,5], 11], "expected": 3 },
+        { "input": [[2], 3], "expected": -1 }
+      ]
+    },
+    {
+      "id": 814,
+      "title": "Number of Islands",
+      "difficulty": "Medium",
+      "description": "Given an `m x n` 2D binary grid `grid` which represents a map of '1's (land) and '0's (water), return the number of islands. An island is surrounded by water and is formed by connecting adjacent lands horizontally or vertically.",
+      "roles": {
+        "architect": "DFS or BFS traversal.",
+        "translator": "Loop grid, if '1' increment count & flood fill.",
+        "debugger": "Mark visited cells as '0'."
+      },
+      "starter_code": "def num_islands(grid):\n    # BFS/DFS\n    return 0",
+      "solution_keywords": ["def", "dfs", "range"],
+      "test_cases": [
+        { 
+          "input": [[
+            ["1","1","1","1","0"],
+            ["1","1","0","1","0"],
+            ["1","1","0","0","0"],
+            ["0","0","0","0","0"]
+          ]], 
+          "expected": 1 
+        },
+        { 
+          "input": [[
+            ["1","1","0","0","0"],
+            ["1","1","0","0","0"],
+            ["0","0","1","0","0"],
+            ["0","0","0","1","1"]
+          ]], 
+          "expected": 3 
+        }
+      ]
+    },
+    {
+      "id": 815,
+      "title": "Reverse Linked List Logic",
+      "difficulty": "Easy",
+      "description": "Simulate reversing a linked list. Given a list `head` like `[1, 2, 3, 4, 5]`, write a function to return the reversed list `[5, 4, 3, 2, 1]`. (Simulated with arrays for test runner simplicity).",
+      "roles": {
+        "architect": "Array reversal or pointer logic.",
+        "translator": "Use slicing or swap logic.",
+        "debugger": "Simple [::-1] works for Python lists."
+      },
+      "starter_code": "def reverse_list(head):\n    # Reverse it\n    return []",
+      "solution_keywords": ["::-1"],
+      "test_cases": [
+        { "input": [[1,2,3,4,5]], "expected": [5,4,3,2,1] },
+        { "input": [[1,2]], "expected": [2,1] }
       ]
     }
   ]
