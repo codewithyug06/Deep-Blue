@@ -1808,5 +1808,64 @@
         { "input": [[1,2]], "expected": [2,1] }
       ]
     }
+  ],
+  "Database Operations": [
+    {
+      "id": 901,
+      "title": "DB: Corrupted Data Recovery",
+      "difficulty": "Hard",
+      "description": "A database table, 'users', has corrupted names (all lowercase). Connect to the in-memory SQLite database, execute an UPDATE statement to capitalize the 'username' column, and then SELECT all rows to verify. The database is initialized and ready. The mission function receives a `sqlite3.Connection` object.",
+      "roles": {
+        "architect": "Logic: Use SQL UPDATE to apply a casing function and SELECT to check the result.",
+        "translator": "Syntax: cursor.execute(\"UPDATE users SET username = UPPER(username)\"); cursor.execute(\"SELECT * FROM users\")",
+        "debugger": "Check: Ensure the function returns the result of the final SELECT statement."
+      },
+      "starter_code": "import sqlite3\n\ndef recover_data(db):\n    # 1. FIX CORRUPTED DATA (Capitalize all usernames)\n    # 2. RETURN ALL ROWS\n    cursor = db.cursor()\n    \n    # WRITE YOUR SQL HERE\n    cursor.execute(\"UPDATE users SET username = UPPER(username)\")\n\n    # RETURN the result of the SELECT query below\n    cursor.execute(\"SELECT id, username FROM users\")\n    return cursor.fetchall()",
+      "solution_keywords": [
+        "sqlite3",
+        "UPPER",
+        "UPDATE",
+        "fetchall"
+      ],
+      "test_cases": [
+        {
+          "input": [],
+          "expected": [[1, "NEO"], [2, "TRINITY"]]
+        }
+      ],
+      "meta": {
+        "needs_db": true
+      }
+    },
+    {
+      "id": 902,
+      "title": "VFS: Modular Sum",
+      "difficulty": "Easy",
+      "description": "Your main script needs to use a utility function defined in another file, `utils.py`. The `utils.py` file defines a function `add(a, b)` that adds two numbers. In `main.py`, import this function and use it to return the sum of 10 and 20. This mission requires modular coding across virtual files.",
+      "roles": {
+        "architect": "Logic: Modular programming via import.",
+        "translator": "Syntax: from utils import add; return add(10, 20).",
+        "debugger": "Check: Ensure the correct filename is imported."
+      },
+      "starter_code": {
+          "main.py": "from utils import add\n\ndef solve():\n    # Call the function from utils.py\n    return add(10, 20)",
+          "utils.py": "def add(a, b):\n    # This function is correct\n    return a + b"
+      },
+      "solution_keywords": [
+        "from",
+        "import",
+        "add"
+      ],
+      "test_cases": [
+        {
+          "input": [],
+          "expected": 30
+        }
+      ],
+      "meta": {
+        "multi_file": true,
+        "main_file": "main.py"
+      }
+    }
   ]
 }

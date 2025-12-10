@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import axios from 'axios';
 import CodeVisualizer from '../three-scene/CodeVisualizer.jsx';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -17,7 +17,9 @@ const Icons = {
   Save: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" /></svg>,
   Mic: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" /></svg>,
   Users: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
-  Ghost: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 18A8 8 0 0012 2a8 8 0 00-8 8v8a8 8 0 0016 0h-4zm-4-4v-4a4 4 0 00-8 0v4h8z" /></svg>
+  Ghost: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 18A8 8 0 0012 2a8 8 0 00-8 8v8a8 8 0 0016 0h-4zm-4-4v-4a4 4 0 00-8 0v4h8z" /></svg>,
+  Sword: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+  Fire: () => <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.45-.412-1.725a1 1 0 00-1.847-.267c-.125.27-.091.606.017.967.191.638.563 1.241.986 1.726a5.547 5.547 0 00-2.222 3.074c-.007.028-.01.056-.013.085L4.092 12.7c-.23.15-.31.423-.19.663.593 1.186 1.702 2.307 3.328 3.365.942.615 1.996 1.056 3.09 1.258.913.169 1.777.05 2.55-.262a5.526 5.526 0 002.397-2.029c.74-1.24.97-2.61.682-3.856l-.015-.064a6.76 6.76 0 00-.637-1.842c-.22-.43-.48-.826-.77-1.175.302.26.621.492.95.688.35.21.755.228 1.059.083.333-.16.517-.553.43-1.01a6.67 6.67 0 00-.818-2.383 6.958 6.958 0 00-1.575-2.09c-.432-.423-.925-.79-1.418-1.123-.39-.264-.766-.5-1.113-.687zM8.03 15.65c.67.436 1.41.722 2.164.862.61.113 1.183.044 1.68-.16a3.525 3.525 0 001.53-1.296c.472-.792.618-1.666.434-2.46a4.773 4.773 0 00-.45-1.303c-.232-.45-.53-.865-.892-1.229a4.962 4.962 0 00-1.124-1.49c-.308-.302-.66-.563-1.013-.8.21.743.332 1.55.334 2.41 0 .276-.224.5-.5.5-.276 0-.5-.224-.5-.5a6.612 6.612 0 00-.172-1.517c-.365.26-.705.54-.997.834a4.57 4.57 0 00-1.077 1.79c-.235 1.013.065 2.213 1.082 3.86z" clipRule="evenodd" /></svg>
 };
 
 const highlightCode = (code) => {
@@ -64,7 +66,7 @@ const ChatInterface = ({ messages, onSend, loading, onMicClick }) => {
             <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar relative">
                 {messages.length === 0 && (
                     <div className="text-center mt-10 opacity-40">
-                        <div className="text-3xl mb-2 grayscale">👾</div>
+                        <div className="text-3xl mb-2 grayscale">太</div>
                         <p className="text-[10px] uppercase tracking-widest">Neural Link Offline</p>
                         <p className="p-xs">"Analyze" code to initiate handshake.</p>
                     </div>
@@ -123,9 +125,92 @@ const ChatInterface = ({ messages, onSend, loading, onMicClick }) => {
     );
 };
 
+const HeatmapOverlay = ({ code, stats, onClose }) => {
+    const lines = code.split('\n');
+    const maxScore = Math.max(...Object.values(stats).map(s => (s.edits * 2) + s.dwell), 1); // Avoid div by zero
+
+    return (
+        <div className="absolute inset-0 bg-[#020617] z-50 flex flex-col">
+            <div className="px-6 py-4 border-b border-white/10 flex justify-between items-center bg-[#0a0f1e]">
+                <div className="flex items-center gap-3">
+                    <div className="p-1.5 rounded bg-orange-500/20 text-orange-400"><Icons.Fire /></div>
+                    <div>
+                        <h3 className="text-sm font-bold text-white uppercase tracking-wider">Cognitive Load Heatmap</h3>
+                        <p className="text-[10px] text-slate-400">Visualizing neural friction patterns</p>
+                    </div>
+                </div>
+                <div className="flex items-center gap-4 text-[10px] uppercase font-bold text-slate-500">
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-green-500/20 border border-green-500/50"></div> Flow</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-yellow-500/20 border border-yellow-500/50"></div> Focus</div>
+                    <div className="flex items-center gap-2"><div className="w-3 h-3 rounded bg-red-500/20 border border-red-500/50"></div> Struggle</div>
+                    <button onClick={onClose} className="ml-4 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded transition-colors">Close</button>
+                </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6 font-mono text-sm leading-6">
+                <div className="relative">
+                    {lines.map((line, i) => {
+                        const lineStat = stats[i + 1] || { dwell: 0, edits: 0 };
+                        const score = (lineStat.edits * 2) + lineStat.dwell;
+                        const intensity = Math.min(score / maxScore, 1);
+                        
+                        // Color interpolation: Green -> Yellow -> Red
+                        let bgColor = 'transparent';
+                        if (intensity > 0.05) {
+                            if (intensity < 0.5) {
+                                // Green to Yellow
+                                const r = Math.floor(255 * (intensity * 2));
+                                const g = 255;
+                                bgColor = `rgba(${r}, ${g}, 0, 0.2)`;
+                            } else {
+                                // Yellow to Red
+                                const r = 255;
+                                const g = Math.floor(255 * (2 - intensity * 2));
+                                bgColor = `rgba(${r}, ${g}, 0, 0.3)`;
+                            }
+                        }
+
+                        return (
+                            <div key={i} className="relative flex">
+                                <div className="w-12 text-right pr-4 text-slate-600 select-none opacity-50">{i + 1}</div>
+                                <div className="flex-1 pl-4 relative">
+                                    <div 
+                                        className="absolute inset-0 pointer-events-none transition-colors duration-500 rounded-sm"
+                                        style={{ backgroundColor: bgColor }}
+                                    ></div>
+                                    <span className="relative z-10 text-slate-300 whitespace-pre">{line}</span>
+                                    {lineStat.edits > 0 && (
+                                        <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-0.5 opacity-40">
+                                            {Array.from({ length: Math.min(lineStat.edits, 5) }).map((_, idx) => (
+                                                <div key={idx} className="w-1 h-1 rounded-full bg-red-500"></div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrade }) => {
-  const [code, setCode] = useState(initialCode || `def solve():\n    # Write your solution here\n    pass`);
+  // --- VFS & EDITOR STATE ---
+  const [files, setFiles] = useState({ 
+      'main.py': initialCode || `def solve():\n    # Write your solution here\n    pass` 
+  });
+  const [activeFile, setActiveFile] = useState('main.py');
+  const code = files[activeFile];
+  
+  // --- HEATMAP STATE ---
+  const [cognitiveStats, setCognitiveStats] = useState({}); // { lineNo: { dwell: 0, edits: 0 } }
+  const [showHeatmap, setShowHeatmap] = useState(false);
+  const trackingRef = useRef({ lastLine: 1, lastTime: Date.now() });
+
+  // --- CORE STATE ---
   const [visualData, setVisualData] = useState(null);
+  const [opponentVisualData, setOpponentVisualData] = useState(null); 
   const [executionTrace, setExecutionTrace] = useState([]); 
   const [output, setOutput] = useState("");
   const [testResults, setTestResults] = useState(null);
@@ -135,13 +220,16 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   const [chatMessages, setChatMessages] = useState([]);
   const [highlightedLine, setHighlightedLine] = useState(null);
   const [glitch, setGlitch] = useState(false);
+  const [systemOverload, setSystemOverload] = useState(false); 
   
-  // --- GHOST / MULTIPLAYER STATE ---
-  const [crewMode, setCrewMode] = useState(false);
-  const [crewRole, setCrewRole] = useState('pilot');
+  // --- MULTIPLAYER STATE ---
+  const [gameMode, setGameMode] = useState('solo'); 
+  const [crewRole, setCrewRole] = useState(null); 
   const [sessionKey, setSessionKey] = useState('');
-  const [ghostRecording, setGhostRecording] = useState(null); // Stores last successful trace
-  const [showGhostButton, setShowGhostButton] = useState(false); // Show Replay button
+  const [isMatchmaking, setIsMatchmaking] = useState(false);
+  
+  const [ghostRecording, setGhostRecording] = useState(null); 
+  const [showGhostButton, setShowGhostButton] = useState(false);
   
   const [pyodide, setPyodide] = useState(null);
   const [missionData, setMissionData] = useState(null);
@@ -177,6 +265,33 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     return null;
   };
 
+  // --- COGNITIVE TRACKING LOGIC ---
+  const updateDwellTime = (currentLine) => {
+      const now = Date.now();
+      const duration = (now - trackingRef.current.lastTime) / 1000;
+      const prevLine = trackingRef.current.lastLine;
+
+      if (duration > 0.5) { // Filter micro-movements
+          setCognitiveStats(prev => {
+              const lineStats = prev[prevLine] || { dwell: 0, edits: 0 };
+              return {
+                  ...prev,
+                  [prevLine]: { ...lineStats, dwell: lineStats.dwell + duration }
+              };
+          });
+      }
+      trackingRef.current = { lastLine: currentLine, lastTime: now };
+  };
+
+  const trackInputActivity = (e) => {
+      const { selectionStart, value } = e.target;
+      const currentLine = value.substr(0, selectionStart).split("\n").length;
+      
+      if (currentLine !== trackingRef.current.lastLine) {
+          updateDwellTime(currentLine);
+      }
+  };
+
   // --- INITIALIZE PYODIDE, WS, AND LOAD GHOST ---
   useEffect(() => {
     const loadPyodideEngine = async () => {
@@ -184,7 +299,8 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
         if (window.loadPyodide) {
           const py = await window.loadPyodide();
           setPyodide(py);
-          console.log(">> Pyodide Engine Ready");
+          await py.loadPackage("micropip");
+          console.log(">> Pyodide Engine Ready for VFS/DB.");
         }
       } catch (err) {
         setOutput(">> Error loading local Python engine: " + err.message);
@@ -199,14 +315,26 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
                 const found = res.data.find(m => m.id === missionId);
                 setMissionData(found);
 
+                const starterCode = found?.starter_code;
+                let initialFiles = {};
+                const mainFile = found?.meta?.main_file || 'main.py';
+
+                if (typeof starterCode === 'object' && starterCode !== null) {
+                    initialFiles = starterCode;
+                    setFiles(initialFiles);
+                    setActiveFile(mainFile);
+                } else {
+                    initialFiles = {[mainFile]: starterCode || `def solve():\n    # Write your solution here\n    pass`};
+                    setFiles(initialFiles);
+                    setActiveFile(mainFile);
+                }
+                
                 if (user?.id) {
                     const progressRes = await axios.get(`http://127.0.0.1:8000/get-progress?user_id=${user.id}&mission_id=${missionId}`);
                     if (progressRes.data && progressRes.data.code) {
-                        setCode(progressRes.data.code);
+                        setFiles(prev => ({ ...prev, [mainFile]: progressRes.data.code }));
                         setOutput(">> Saved progress loaded successfully.\n");
                     }
-                    
-                    // NEW: Load Ghost Recording from LocalStorage
                     const ghost = localStorage.getItem(`ghost_${user.id}_${missionId}`);
                     if (ghost) {
                         setGhostRecording(JSON.parse(ghost));
@@ -225,9 +353,30 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     socket.onopen = () => console.log(">> Neural Link Established (WebSocket)");
     socket.onmessage = (event) => {
         const data = JSON.parse(event.data);
+        
+        // --- MULTIPLAYER HANDLERS ---
         if (data.type === "code_update") {
             if (crewRole === 'navigator') {
-                setCode(data.code);
+                setFiles(prev => ({ ...prev, [activeFile]: data.code })); 
+            }
+        } else if (data.type === "terminal_update") {
+            if (crewRole === 'navigator') {
+                setOutput(prev => prev + data.output);
+            }
+        } else if (data.type === "duel_start") {
+            setGameMode('duel');
+            setIsMatchmaking(false);
+            setSessionKey(data.duel_id);
+            setOutput("\n>> DUEL PROTOCOL INITIATED. OPPONENT FOUND.\n");
+        } else if (data.type === "opponent_visual") {
+            setOpponentVisualData(data.data);
+        } else if (data.type === "duel_end") {
+            if (data.result === 'lose') {
+                setSystemOverload(true);
+                setOutput("\n>> SYSTEM OVERLOAD: OPPONENT VICTORY DETECTED.\n");
+                setTimeout(() => setSystemOverload(false), 3000);
+            } else if (data.result === 'win') {
+                setOutput("\n>> VICTORY: OPPONENT SYSTEM COMPROMISED.\n");
             }
         } else if (data.role) {
             setLoading(false);
@@ -239,7 +388,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
     setWs(socket);
 
     return () => socket.close();
-  }, [missionId, crewRole]);
+  }, [missionId, crewRole, activeFile, user?.id]);
 
   const handleScroll = () => {
     if (textareaRef.current && highlightRef.current) {
@@ -250,25 +399,28 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   const handleSave = async (isCompleted = false) => {
       if (!user || !missionId) return;
       try {
+          const mainFile = missionData?.meta?.main_file || 'main.py';
           await axios.post('http://localhost:8000/save-progress', {
               user_id: user.id,
               mission_id: missionId,
-              code: code,
+              code: files[mainFile], 
               is_completed: isCompleted 
           });
           
           if (!isCompleted) {
-              setOutput(prev => prev + "\n>> System: Draft saved. You can resume later. 💾");
+              setOutput(prev => prev + "\n>> System: Draft saved. You can resume later. 沈");
           } else {
-              // Only record GHOST on successful completion
-              // The trace list should ideally contain line numbers AND time delta from start of execution.
-              // We'll approximate this by just recording line numbers with a timestamp.
               const newGhost = executionTrace.map(lineNo => ({ timestamp: Date.now(), line: lineNo }));
               localStorage.setItem(`ghost_${user.id}_${missionId}`, JSON.stringify(newGhost));
               setGhostRecording(newGhost);
               setShowGhostButton(true);
               
-              setOutput(prev => prev + "\n>> System: Mission Completed & Status Updated! 🏆");
+              setOutput(prev => prev + "\n>> System: Mission Completed & Status Updated! 醇");
+              
+              // --- TRIGGER HEATMAP ON SUCCESS ---
+              updateDwellTime(trackingRef.current.lastLine); // Flush last timer
+              setTimeout(() => setShowHeatmap(true), 1500);
+
               await axios.post('http://localhost:8000/submit-score', {
                   user_id: user.id,
                   mission_id: missionId,
@@ -287,7 +439,6 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
       if (navigator.vibrate) navigator.vibrate([100, 50, 100]); 
       setTimeout(() => setGlitch(false), 800);
 
-      // CODE SONIFICATION: Error Sound
       if ('AudioContext' in window) {
           const audioContext = new (window.AudioContext || window.webkitAudioContext)();
           const oscillator = audioContext.createOscillator();
@@ -317,44 +468,70 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
       }
   };
 
+  // --- MODIFIED handleRun to support VFS, DB, and Multiplayer Modes ---
   const handleRun = async () => {
       if (!pyodide) {
           setOutput(">> Engine initializing... please wait.");
           return;
       }
       setLoading(true);
-      setOutput(">> Executing locally in browser environment...\n");
+      if (crewRole !== 'pilot') setOutput(">> Executing locally in browser environment...\n");
       setTestResults(null);
       setExecutionTrace([]);
       setHighlightedLine(null); 
       setActiveTab("terminal");
 
       try {
+          // 1. VFS Write
+          await pyodide.runPythonAsync("import os\nfor f in os.listdir('.'):\n  if f.endswith('.py') or f.endswith('.json'):\n    try: os.remove(f)\n    except: pass\n"); 
+          for (const fileName of Object.keys(files)) {
+             pyodide.FS.writeFile(fileName, files[fileName], { encoding: 'utf8' });
+          }
+          
+          // 2. DB Setup
+          let dbTeardownCode = "";
+          if (missionData?.meta?.needs_db) {
+              const dbSetupCode = `
+import sqlite3
+db = sqlite3.connect(':memory:')
+cursor = db.cursor()
+cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT)")
+cursor.execute("INSERT INTO users VALUES (1, 'neo'), (2, 'trinity')")
+db.commit()
+              `;
+              await pyodide.runPythonAsync(dbSetupCode);
+              dbTeardownCode = "\ndb.close()\n"; 
+          }
+
           pyodide.runPython(`
             import sys
             import io
             sys.stdout = io.StringIO()
           `);
 
+          const mainFile = missionData?.meta?.main_file || 'main.py';
+          const codeToExecute = files[mainFile];
+          
           const wrappedCode = `
 import sys
 __trace_data__ = []
 
 def __trace_func__(frame, event, arg):
-    if event == 'line':
+    if event == 'line' and frame.f_code.co_filename == '${mainFile}':
         __trace_data__.append(frame.f_lineno)
     return __trace_func__
 
 sys.settrace(__trace_func__)
 
 try:
-${code.split('\n').map(line => '    ' + line).join('\n')}
+    exec(compile(open('${mainFile}', 'r').read(), '${mainFile}', 'exec'), globals())
 except Exception:
     raise
 finally:
     sys.settrace(None)
+    ${dbTeardownCode} 
 `;
-          await pyodide.loadPackagesFromImports(code);
+          await pyodide.loadPackagesFromImports(codeToExecute);
           await pyodide.runPythonAsync(wrappedCode);
           
           const traceProxy = pyodide.globals.get('__trace_data__');
@@ -363,33 +540,69 @@ finally:
           setExecutionTrace(traceList); 
 
           const stdout = pyodide.runPython("sys.stdout.getvalue()");
-          setOutput(prev => prev + stdout + "\n>> Execution Complete.");
+          
+          // --- BRIDGE CREW LOGIC ---
+          if (gameMode === 'bridge' && crewRole === 'pilot') {
+              // Pilot sends output blindly
+              ws.send(JSON.stringify({
+                  type: "bridge_output",
+                  session_id: sessionKey,
+                  output: stdout + "\n>> Execution Complete by Pilot."
+              }));
+              setOutput(">> Commands transmitted to Navigator. Awaiting instructions.");
+          } else {
+              setOutput(prev => prev + stdout + "\n>> Execution Complete.");
+          }
 
           if (missionData && missionData.test_cases) {
               const results = [];
+              const functionName = extractFunctionName(codeToExecute);
+              
               for (let i = 0; i < missionData.test_cases.length; i++) {
                   const tc = missionData.test_cases[i];
-                  const testCode = `
-try:
-    result = ${extractFunctionName(code)}(*${JSON.stringify(tc.input)})
-    passed = result == ${JSON.stringify(tc.expected)}
-    output = str(result)
-except Exception as e:
-    passed = False
-    output = str(e)
-[passed, output]
-                  `;
+                  let testCode = `
+import json
+passed = False
+output = "Test failed"
+`;
+                  let argsStr = `*json.loads('${JSON.stringify(tc.input)}')`;
+
+                  if (missionData.meta?.needs_db) {
+                      const testDbSetupCode = `
+import sqlite3
+db_conn = sqlite3.connect(':memory:')
+cursor = db_conn.cursor()
+cursor.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT)")
+cursor.execute("INSERT INTO users VALUES (1, 'neo'), (2, 'trinity')")
+db_conn.commit()
+db_conn
+`;
+                        const dbConn = await pyodide.runPythonAsync(testDbSetupCode);
+                        pyodide.globals.set('test_db_conn', dbConn);
+                        testCode = `
+import json
+result = ${functionName}(test_db_conn)
+expected = json.loads('${JSON.stringify(tc.expected)}')
+passed = result == expected
+output = str(result)
+test_db_conn.close()
+`;
+                        dbConn.close(); 
+                  }
+                  
                   try {
-                    const [passed, actual] = pyodide.runPython(testCode).toJs();
+                    await pyodide.runPythonAsync(testCode); 
+                    const passed = pyodide.globals.get('passed');
+                    const actual = pyodide.globals.get('output');
                     results.push({
                         id: i + 1,
-                        input: JSON.stringify(tc.input),
+                        input: missionData.meta?.needs_db ? 'In-Memory DB' : JSON.stringify(tc.input),
                         expected: JSON.stringify(tc.expected),
                         actual: actual,
                         passed: passed
                     });
                   } catch (err) {
-                      results.push({ id: i + 1, passed: false, actual: "Runtime Error" });
+                      results.push({ id: i + 1, passed: false, actual: `Runtime Error: ${err.message}` });
                   }
               }
               setTestResults(results);
@@ -397,7 +610,12 @@ except Exception as e:
 
               const allPassed = results.length > 0 && results.every(r => r.passed);
               if (allPassed) {
-                  // CODE SONIFICATION: Success Sound
+                  // --- DUEL WIN LOGIC ---
+                  if (gameMode === 'duel') {
+                      ws.send(JSON.stringify({ type: "duel_win", session_id: sessionKey }));
+                      setOutput(prev => prev + "\n>> VICTORY: OPPONENT SYSTEM OVERLOADED.\n");
+                  }
+                  
                   if ('AudioContext' in window) {
                       const audioContext = new (window.AudioContext || window.webkitAudioContext)();
                       const oscillator = audioContext.createOscillator();
@@ -411,14 +629,12 @@ except Exception as e:
                       oscillator.stop(audioContext.currentTime + 0.2);
                   }
                   
-                  setOutput(prev => prev + "\n\n>> ✨ ALL SYSTEMS NOMINAL ✨\n>> Mission Completed. Auto-saving status...");
+                  setOutput(prev => prev + "\n\n>> 笨ｨ ALL SYSTEMS NOMINAL 笨ｨ\n>> Mission Completed. Auto-saving status...");
                   await handleSave(true);
               } else {
-                  // FAIL STATE: Trigger Glitch & Vibrate
                   setGlitch(true);
                   if (navigator.vibrate) navigator.vibrate(200); 
                   setTimeout(() => setGlitch(false), 500);
-
                   await handleRuntimeError("Test cases failed.");
               }
           }
@@ -451,6 +667,15 @@ except Exception as e:
         });
         setVisualData(response.data.visual_data);
         
+        // --- DUEL: SEND VISUALS TO OPPONENT ---
+        if (gameMode === 'duel') {
+            ws.send(JSON.stringify({
+                type: "duel_visual_update",
+                session_id: sessionKey,
+                data: response.data.visual_data
+            }));
+        }
+        
         if (response.data.vibration_pattern && navigator.vibrate) {
             navigator.vibrate(response.data.vibration_pattern);
         }
@@ -480,9 +705,18 @@ except Exception as e:
       }
   };
 
-  const handleJoinCrew = () => {
+  const startMatchmaking = () => {
+      setIsMatchmaking(true);
+      if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: "find_match" }));
+      }
+  };
+
+  const handleJoinCrew = (role) => {
       if (!sessionKey) return;
       setCrewMode(true);
+      setGameMode('bridge');
+      setCrewRole(role);
       if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
               type: "join",
@@ -493,8 +727,9 @@ except Exception as e:
 
   const handleCodeChange = (newCode) => {
       if (crewRole === 'navigator') return;
-      setCode(newCode);
-      if (crewMode && crewRole === 'pilot' && ws && ws.readyState === WebSocket.OPEN) {
+      setFiles(prev => ({ ...prev, [activeFile]: newCode }));
+      
+      if (gameMode === 'bridge' && crewRole === 'pilot' && ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({
               type: "code_sync",
               session_id: sessionKey,
@@ -516,13 +751,23 @@ except Exception as e:
   const handleKeyDown = (e) => {
     if (crewRole === 'navigator') return;
     const { selectionStart, selectionEnd, value } = e.target;
+    
+    // --- COGNITIVE TRACKING: BACKSPACES ---
+    if (e.key === 'Backspace') {
+        const currentLine = value.substr(0, selectionStart).split("\n").length;
+        setCognitiveStats(prev => {
+            const lineStats = prev[currentLine] || { dwell: 0, edits: 0 };
+            return { ...prev, [currentLine]: { ...lineStats, edits: lineStats.edits + 1 } };
+        });
+    }
+
     const pairs = { '(': ')', '[': ']', '{': '}', '"': '"', "'": "'" };
     const closingChars = Object.values(pairs);
 
     if (e.key === 'Tab') {
       e.preventDefault();
       const newText = value.substring(0, selectionStart) + "    " + value.substring(selectionEnd);
-      setCode(newText);
+      handleCodeChange(newText);
       setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 4; }, 0);
       return;
     }
@@ -538,7 +783,7 @@ except Exception as e:
       const closing = pairs[e.key];
       const selectedText = value.substring(selectionStart, selectionEnd);
       const newText = value.substring(0, selectionStart) + e.key + selectedText + closing + value.substring(selectionEnd);
-      setCode(newText);
+      handleCodeChange(newText);
       setTimeout(() => {
         if(e.target) {
             if (selectionStart !== selectionEnd) {
@@ -558,7 +803,7 @@ except Exception as e:
         if (pairs[charBefore] === charAfter) {
             e.preventDefault();
             const newText = value.substring(0, selectionStart - 1) + value.substring(selectionEnd + 1);
-            setCode(newText);
+            handleCodeChange(newText);
             setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart - 1; }, 0);
             return;
         }
@@ -575,16 +820,43 @@ except Exception as e:
         indent += "    ";
       }
       const newText = value.substring(0, selectionStart) + '\n' + indent + value.substring(selectionEnd);
-      setCode(newText);
+      handleCodeChange(newText);
       setTimeout(() => { if(e.target) e.target.selectionStart = e.target.selectionEnd = selectionStart + 1 + indent.length; }, 0);
       return;
     }
   };
 
   return (
-    <div className="flex h-screen bg-[#020617] text-slate-300 font-sans overflow-hidden">
+    <div className={`flex h-screen bg-[#020617] text-slate-300 font-sans overflow-hidden ${systemOverload ? 'animate-pulse bg-red-900/20' : ''}`}>
+      
+      {/* SYSTEM OVERLOAD OVERLAY */}
+      <AnimatePresence>
+        {systemOverload && (
+            <motion.div 
+                initial={{ opacity: 0 }} 
+                animate={{ opacity: 1 }} 
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[100] bg-red-600/20 backdrop-blur-sm flex items-center justify-center pointer-events-none"
+            >
+                <div className="text-center">
+                    <h1 className="text-6xl font-black text-red-500 tracking-tighter drop-shadow-lg mb-2">SYSTEM OVERLOAD</h1>
+                    <p className="text-xl font-mono text-red-300">OPPONENT BREACH SUCCESSFUL</p>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* LEFT: EDITOR & TERMINAL */}
       <div className="flex flex-1 flex-col min-w-0 bg-[#0a0f1e]/40 backdrop-blur-sm relative border-r border-white/5">
+            {/* HEATMAP OVERLAY */}
+            {showHeatmap && (
+                <HeatmapOverlay 
+                    code={code} 
+                    stats={cognitiveStats} 
+                    onClose={() => setShowHeatmap(false)} 
+                />
+            )}
+
             <div className="relative z-50 min-h-[4.5rem] px-6 py-4 border-b border-white/5 flex justify-between items-start shrink-0 bg-[#0a0f1e]/90 shadow-xl">
                 <div className="flex flex-col gap-2 min-w-0">
                     <button 
@@ -601,31 +873,41 @@ except Exception as e:
                     </div>
                 </div>
                 
+                {/* MULTIPLAYER CONTROLS */}
                 <div className="flex flex-col items-end gap-2">
-                    {!crewMode ? (
-                        <div className="flex items-center bg-white/5 rounded-lg p-1">
+                    {gameMode === 'solo' ? (
+                        <div className="flex items-center gap-2 bg-white/5 rounded-lg p-1">
+                            <button 
+                                onClick={startMatchmaking} 
+                                className={`text-[10px] uppercase font-bold px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center gap-2 ${isMatchmaking ? 'animate-pulse' : ''}`}
+                            >
+                                <Icons.Sword /> {isMatchmaking ? 'Scanning...' : 'Code Duel'}
+                            </button>
+                            
+                            <div className="h-4 w-[1px] bg-white/10 mx-1"></div>
+
                             <input 
                                 type="text" 
-                                placeholder="Session ID" 
+                                placeholder="Crew Key" 
                                 value={sessionKey} 
                                 onChange={(e) => setSessionKey(e.target.value)}
                                 className="bg-transparent border-none text-xs text-white w-20 px-2 focus:outline-none placeholder-slate-600"
                             />
-                            <select value={crewRole} onChange={(e) => setCrewRole(e.target.value)} className="bg-black/40 text-[10px] text-slate-300 border-none rounded p-1 mr-1">
-                                <option value="pilot">Pilot</option>
-                                <option value="navigator">Nav</option>
-                            </select>
-                            <button onClick={handleJoinCrew} className="text-cyan-400 hover:text-white p-1"><Icons.Users /></button>
+                            <div className="flex gap-1">
+                                <button onClick={() => handleJoinCrew('pilot')} className="text-xs px-2 py-1 bg-blue-600/30 text-blue-300 rounded hover:bg-blue-600/50">Pilot</button>
+                                <button onClick={() => handleJoinCrew('navigator')} className="text-xs px-2 py-1 bg-emerald-600/30 text-emerald-300 rounded hover:bg-emerald-600/50">Nav</button>
+                            </div>
                         </div>
                     ) : (
                         <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
                             <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-                            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">BRIDGE: {sessionKey} ({crewRole})</span>
+                            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
+                                {gameMode === 'duel' ? 'DUEL IN PROGRESS' : `BRIDGE: ${crewRole?.toUpperCase()}`}
+                            </span>
                         </div>
                     )}
 
                     <div className="flex items-center gap-3">
-                        
                         {showGhostButton && (
                             <button onClick={() => setGhostRecording(null)} className="px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
                                 <Icons.Ghost />
@@ -651,6 +933,22 @@ except Exception as e:
             </div>
             
             <div className="flex-grow relative flex flex-col group z-0">
+                {/* File Tabs */}
+                {Object.keys(files).length > 1 && (
+                    <div className="flex border-b border-white/5 bg-[#0a0f1e]">
+                        {Object.keys(files).map(file => (
+                            <button 
+                                key={file}
+                                onClick={() => setActiveFile(file)}
+                                className={`px-4 py-2 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all relative ${activeFile === file ? "text-cyan-400 bg-white/5" : "text-slate-500 hover:text-slate-300"}`}
+                            >
+                                {file}
+                                {activeFile === file && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>}
+                            </button>
+                        ))}
+                    </div>
+                )}
+                
                 <div className="flex-1 relative">
                     <div className="absolute left-0 top-0 bottom-0 w-12 bg-[#050914] border-r border-white/5 text-slate-600 text-xs font-mono text-right pr-3 pt-6 select-none leading-6 z-10 hidden md:block">
                         {code.split('\n').map((_, i) => (
@@ -662,7 +960,10 @@ except Exception as e:
                     <pre ref={highlightRef} className="absolute inset-0 w-full h-full p-6 md:pl-16 font-mono text-sm leading-6 pointer-events-none whitespace-pre-wrap overflow-hidden z-0" dangerouslySetInnerHTML={{ __html: highlightCode(code) + '<br/>' }} />
                     <textarea 
                         ref={textareaRef} 
-                        onScroll={handleScroll} 
+                        onScroll={handleScroll}
+                        onSelect={trackInputActivity}
+                        onClick={trackInputActivity}
+                        onKeyUp={trackInputActivity} 
                         className={`absolute inset-0 w-full h-full bg-transparent p-6 md:pl-16 font-mono text-sm leading-6 resize-none focus:outline-none text-transparent caret-cyan-400 selection:bg-blue-500/30 z-10 ${crewRole === 'navigator' ? 'cursor-not-allowed' : ''}`}
                         style={{ color: 'transparent' }} 
                         value={code} 
@@ -674,46 +975,56 @@ except Exception as e:
                 </div>
             </div>
           
-            <div className="h-64 bg-[#050914] border-t border-white/5 flex flex-col shrink-0 relative z-20">
-                <div className="flex border-b border-white/5 bg-[#020617]">
-                    {['terminal', 'tests'].map(tab => (
-                        <button 
-                            key={tab}
-                            onClick={() => setActiveTab(tab)} 
-                            className={`px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all relative ${activeTab === tab ? "text-cyan-400 bg-white/5" : "text-slate-500 hover:text-slate-300"}`}
-                        >
-                            {tab === 'terminal' ? <Icons.Terminal /> : <Icons.Check />}
-                            {tab}
-                            {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>}
-                        </button>
-                    ))}
+            {/* TERMINAL PANEL */}
+            {!(gameMode === 'bridge' && crewRole === 'pilot') && (
+                <div className="h-64 bg-[#050914] border-t border-white/5 flex flex-col shrink-0 relative z-20">
+                    <div className="flex border-b border-white/5 bg-[#020617]">
+                        {['terminal', 'tests'].map(tab => (
+                            <button 
+                                key={tab}
+                                onClick={() => setActiveTab(tab)} 
+                                className={`px-6 py-2.5 text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all relative ${activeTab === tab ? "text-cyan-400 bg-white/5" : "text-slate-500 hover:text-slate-300"}`}
+                            >
+                                {tab === 'terminal' ? <Icons.Terminal /> : <Icons.Check />}
+                                {tab}
+                                {activeTab === tab && <div className="absolute bottom-0 left-0 right-0 h-[2px] bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.5)]"></div>}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex-1 p-4 font-mono text-xs overflow-y-auto custom-scrollbar">
+                        {activeTab === "terminal" ? (
+                            <div className="text-slate-400 whitespace-pre-wrap leading-relaxed">{output || <span className="text-slate-700 italic opacity-50">// System awaiting input...</span>}</div>
+                        ) : (
+                            <div className="space-y-2">
+                                {testResults ? testResults.map((t, i) => (
+                                    <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} key={i} className={`flex justify-between items-center p-3 rounded bg-white/5 border-l-2 ${t.passed ? 'border-emerald-500' : 'border-red-500'}`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-1 rounded-full ${t.passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{t.passed ? <Icons.Check /> : <Icons.Cross />}</div>
+                                            <div className="flex flex-col"><span className={`font-bold ${t.passed ? "text-emerald-400" : "text-red-400"}`}>{t.passed ? "PASSED" : "FAILED"}</span><span className="text-slate-500 mt-0.5">Input: <code className="bg-black/30 px-1.5 py-0.5 rounded text-slate-300">{t.input}</code></span></div>
+                                        </div>
+                                        {!t.passed && <div className="text-right text-[10px] opacity-70">Exp: {t.expected} / Act: {t.actual}</div>}
+                                    </motion.div>
+                                )) : <p className="text-slate-700 italic text-center py-4">// Execute code to run assertions.</p>}
+                            </div>
+                        )}
+                        <div ref={messagesEndRef} />
+                    </div>
                 </div>
-                <div className="flex-1 p-4 font-mono text-xs overflow-y-auto custom-scrollbar">
-                    {activeTab === "terminal" ? (
-                        <div className="text-slate-400 whitespace-pre-wrap leading-relaxed">{output || <span className="text-slate-700 italic opacity-50">// System awaiting input...</span>}</div>
-                    ) : (
-                        <div className="space-y-2">
-                            {testResults ? testResults.map((t, i) => (
-                                <motion.div initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: i * 0.05 }} key={i} className={`flex justify-between items-center p-3 rounded bg-white/5 border-l-2 ${t.passed ? 'border-emerald-500' : 'border-red-500'}`}>
-                                    <div className="flex items-center gap-3">
-                                        <div className={`p-1 rounded-full ${t.passed ? 'bg-emerald-500/20 text-emerald-400' : 'bg-red-500/20 text-red-400'}`}>{t.passed ? <Icons.Check /> : <Icons.Cross />}</div>
-                                        <div className="flex flex-col"><span className={`font-bold ${t.passed ? "text-emerald-400" : "text-red-400"}`}>{t.passed ? "PASSED" : "FAILED"}</span><span className="text-slate-500 mt-0.5">Input: <code className="bg-black/30 px-1.5 py-0.5 rounded text-slate-300">{t.input}</code></span></div>
-                                    </div>
-                                    {!t.passed && <div className="text-right text-[10px] opacity-70">Exp: {t.expected} / Act: {t.actual}</div>}
-                                </motion.div>
-                            )) : <p className="text-slate-700 italic text-center py-4">// Execute code to run assertions.</p>}
-                        </div>
-                    )}
-                    <div ref={messagesEndRef} />
+            )}
+            {gameMode === 'bridge' && crewRole === 'pilot' && (
+                <div className="h-64 bg-[#050914] border-t border-white/5 flex flex-col justify-center items-center text-center p-4">
+                    <p className="text-red-500 font-bold uppercase tracking-widest text-xs mb-2">⚠ TERMINAL FEED OFFLINE</p>
+                    <p className="text-slate-500 text-xs">Data stream rerouted to Navigator. Await verbal confirmation.</p>
                 </div>
-            </div>
+            )}
       </div>
 
       <div className="w-1 bg-white/5 hover:bg-cyan-500 cursor-ew-resize transition-colors z-40" onMouseDown={startResizing} />
 
       {/* RIGHT: VISUALS & CHAT */}
       <div style={{ width: sidebarWidth }} className="flex flex-col bg-[#050914] relative z-10 shrink-0 border-l border-white/5">
-          <div className="h-[60%] relative border-b border-white/5 overflow-hidden">
+          {/* TOP PANEL: VISUALIZER (Split for Duel) */}
+          <div className="h-[60%] relative border-b border-white/5 overflow-hidden flex flex-col">
             {!isPremium && (
                 <div className="absolute inset-0 z-20 bg-[#020617]/80 backdrop-blur-sm flex flex-col items-center justify-center text-center p-8">
                     <div className="w-12 h-12 mb-4 rounded-xl bg-amber-500/10 flex items-center justify-center border border-amber-500/20"><div className="text-amber-500"><Icons.Lock /></div></div>
@@ -723,13 +1034,37 @@ except Exception as e:
                 </div>
             )}
             
-            {visualData ? <CodeVisualizer data={visualData} trace={executionTrace} glitchActive={glitch} ghostTrace={ghostRecording} /> : (
-                <div className="absolute inset-0 flex items-center justify-center flex-col opacity-30">
-                    <div className="w-24 h-24 border border-dashed border-slate-600 rounded-full animate-spin-slow flex items-center justify-center">
-                        <div className="w-20 h-20 border border-slate-700 rounded-full"></div>
-                    </div>
-                    <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-slate-500">Awaiting Neural Analysis</p>
+            {/* Pilot in Bridge Mode can't see Visualizer */}
+            {gameMode === 'bridge' && crewRole === 'pilot' ? (
+                <div className="flex-1 flex flex-col items-center justify-center bg-black">
+                    <div className="w-16 h-16 rounded-full border-2 border-red-900 border-t-red-500 animate-spin"></div>
+                    <p className="mt-4 text-red-500 font-mono text-xs uppercase tracking-widest">VISUAL UPLINK SEVERED</p>
                 </div>
+            ) : gameMode === 'duel' ? (
+                // DUEL MODE: SPLIT SCREEN
+                <>
+                    <div className="flex-1 relative border-b border-white/10">
+                        <div className="absolute top-2 left-2 z-10 bg-blue-600/20 text-blue-300 text-[10px] font-bold px-2 py-1 rounded">SELF</div>
+                        {visualData && <CodeVisualizer data={visualData} trace={executionTrace} glitchActive={glitch} ghostTrace={ghostRecording} />}
+                    </div>
+                    <div className="flex-1 relative bg-red-900/5">
+                        <div className="absolute top-2 left-2 z-10 bg-red-600/20 text-red-300 text-[10px] font-bold px-2 py-1 rounded">OPPONENT (HOLOGRAM)</div>
+                        {opponentVisualData ? 
+                            <CodeVisualizer data={opponentVisualData} trace={[]} glitchActive={false} /> :
+                            <div className="flex items-center justify-center h-full text-slate-600 text-xs font-mono">NO SIGNAL</div>
+                        }
+                    </div>
+                </>
+            ) : (
+                // STANDARD MODE
+                visualData ? <CodeVisualizer data={visualData} trace={executionTrace} glitchActive={glitch} ghostTrace={ghostRecording} /> : (
+                    <div className="absolute inset-0 flex items-center justify-center flex-col opacity-30">
+                        <div className="w-24 h-24 border border-dashed border-slate-600 rounded-full animate-spin-slow flex items-center justify-center">
+                            <div className="w-20 h-20 border border-slate-700 rounded-full"></div>
+                        </div>
+                        <p className="mt-4 text-[10px] uppercase tracking-[0.3em] text-slate-500">Awaiting Neural Analysis</p>
+                    </div>
+                )
             )}
           </div>
           
