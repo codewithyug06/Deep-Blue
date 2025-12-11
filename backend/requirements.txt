@@ -2,14 +2,16 @@ fastapi>=0.100.0
 uvicorn[standard]>=0.23.0
 python-multipart>=0.0.6
 pydantic>=2.0.0
+pydantic-settings>=2.0.0
 python-dotenv>=1.0.0
 langchain>=0.1.0
 langchain-core>=0.1.0
 langchain-community>=0.0.10
-langchain-google-genai>=1.0.3  # Forced update for Gemini 1.5 support
+langchain-google-genai>=1.0.3
 langchain-chroma
 chromadb
 passlib[argon2]
 argon2-cffi
 sqlalchemy>=2.0.0
 databases[sqlite]>=0.7.0
+fastapi-mail>=1.4.1

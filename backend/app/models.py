@@ -1,15 +1,18 @@
-from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float
+from sqlalchemy import Column, Integer, String, Boolean, ForeignKey, Float, DateTime
 from sqlalchemy.orm import relationship
 from .database import Base
+from datetime import datetime
 
 class User(Base):
     __tablename__ = "users"
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String, unique=True, index=True)
-    hashed_password = Column(String) # Stores Argon2 hashed password securely
+    # This is the line your error says is missing:
+    email = Column(String, unique=True, index=True) 
+    hashed_password = Column(String)
     is_premium = Column(Boolean, default=False)
     progress = relationship("UserProgress", back_populates="user")
-    scores = relationship("Leaderboard", back_populates="user") # New Relationship
+    scores = relationship("Leaderboard", back_populates="user")
 
 class UserProgress(Base):
     __tablename__ = "user_progress"
@@ -17,17 +20,23 @@ class UserProgress(Base):
     user_id = Column(Integer, ForeignKey("users.id"))
     mission_id = Column(Integer)
     is_completed = Column(Boolean, default=False)
-    code_solution = Column(String) 
+    code_solution = Column(String)
     user = relationship("User", back_populates="progress")
 
-# --- NEW: LEADERBOARD MODEL ---
 class Leaderboard(Base):
     __tablename__ = "leaderboard"
     id = Column(Integer, primary_key=True, index=True)
     mission_id = Column(Integer, index=True)
     user_id = Column(Integer, ForeignKey("users.id"))
-    username = Column(String) # Denormalized for easier access
-    execution_time = Column(Float) # Lower is better
-    memory_usage = Column(Float) # Lower is better
+    username = Column(String)
+    execution_time = Column(Float)
+    memory_usage = Column(Float)
     timestamp = Column(String)
     user = relationship("User", back_populates="scores")
+
+class OTP(Base):
+    __tablename__ = "otps"
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, index=True)
+    otp_code = Column(String)
+    expires_at = Column(DateTime)
