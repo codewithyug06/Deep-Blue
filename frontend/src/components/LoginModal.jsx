@@ -388,7 +388,7 @@ const LoginModal = ({ onLogin }) => {
             </div>
         </div>
       </motion.div>
-    </div>
+    </div>  
   );
 };
 

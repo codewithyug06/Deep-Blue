@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import MissionSelect from './MissionSelect';
 import ProblemList from './problems/ProblemList';
-import SettingsModal from './SettingsModal'; // Import new component
+import SettingsModal from './SettingsModal';
+import WorldMap from './WorldMap'; // Import the new component
 import { motion, AnimatePresence } from 'framer-motion';
 
 // --- COMPONENTS ---
@@ -39,7 +40,7 @@ const UserBadge = ({ username, onLogout, onOpenSettings }) => (
         
         {/* Settings Button */}
         <button onClick={onOpenSettings} className="text-slate-400 hover:text-cyan-400 transition-colors" title="Settings">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
         </button>
 
         <button onClick={onLogout} className="text-slate-400 hover:text-red-400 transition-colors" title="Logout">
@@ -100,6 +101,12 @@ const MainMenu = ({ user, onSelectMission, onLogout, viewMode, setViewMode }) =>
                   onClick={() => setViewMode('problems')}
                   icon={(props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" /></svg>}
                 />
+                <NavTab 
+                  label="World" 
+                  active={viewMode === 'world'} 
+                  onClick={() => setViewMode('world')}
+                  icon={(props) => <svg {...props} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+                />
             </div>
 
             {/* Profile & Settings */}
@@ -112,9 +119,8 @@ const MainMenu = ({ user, onSelectMission, onLogout, viewMode, setViewMode }) =>
       </motion.div>
 
       {/* --- CONTENT HERO --- */}
-      <div className="flex-1 relative px-6 lg:px-12 overflow-y-auto custom-scrollbar">
-        <div className="max-w-7xl mx-auto pb-20">
-            
+      <div className="flex-1 relative px-0 lg:px-0 overflow-y-auto custom-scrollbar">
+        
             <AnimatePresence mode='wait'>
                 <motion.div
                     key={viewMode}
@@ -122,18 +128,30 @@ const MainMenu = ({ user, onSelectMission, onLogout, viewMode, setViewMode }) =>
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -20 }}
                     transition={{ duration: 0.3, ease: "easeOut" }}
+                    className="h-full"
                 >
-                    {viewMode === 'missions' ? (
-                        <MissionSelect onSelectMission={onSelectMission} />
-                    ) : (
-                        <div className="bg-[#0f172a]/60 backdrop-blur-md rounded-3xl border border-white/5 p-8 shadow-2xl">
-                            <ProblemList user={user} onSelectMission={onSelectMission} />
+                    {viewMode === 'missions' && (
+                        <div className="max-w-7xl mx-auto px-6 pb-20 pt-4">
+                            <MissionSelect onSelectMission={onSelectMission} />
+                        </div>
+                    )}
+                    
+                    {viewMode === 'problems' && (
+                        <div className="max-w-7xl mx-auto px-6 pb-20 pt-4">
+                            <div className="bg-[#0f172a]/60 backdrop-blur-md rounded-3xl border border-white/5 p-8 shadow-2xl">
+                                <ProblemList user={user} onSelectMission={onSelectMission} />
+                            </div>
+                        </div>
+                    )}
+
+                    {viewMode === 'world' && (
+                        <div className="h-[calc(100vh-100px)] w-full">
+                            <WorldMap user={user} />
                         </div>
                     )}
                 </motion.div>
             </AnimatePresence>
 
-        </div>
       </div>
     </div>
   );

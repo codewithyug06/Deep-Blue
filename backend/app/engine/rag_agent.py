@@ -68,6 +68,35 @@ Return valid JSON matching the mission schema:
 }
 """
 
+# [NEW] Voice-to-Logic Prompt
+VOICE_TO_CODE_PROMPT = """
+You are a Voice-to-Code Synthesizer.
+Convert the following natural language logic description into a skeletal Python function.
+Do NOT explain. Do NOT wrap in markdown blocks like ```python. Just return the raw code.
+If the input is vague, generate a generic placeholder structure.
+
+User Input: {input}
+"""
+
+# [NEW] Predictive Debugging Prompt
+PREDICTIVE_DEBUG_PROMPT = """
+You are a "Time Travel" Debugging Simulator.
+Analyze the provided Python code and predict its future execution state.
+Look for:
+1. Infinite Loops
+2. Memory Leaks (e.g., lists growing indefinitely)
+3. Logical Dead ends
+
+Return ONLY valid JSON:
+{
+  "risk_level": "Safe" | "Warning" | "Critical",
+  "prediction": "A concise description of what will happen in ~5-10 steps (e.g., 'Memory usage will spike by 500% due to unbounded append').",
+  "suggestion": "How to fix the architectural flaw."
+}
+
+Code: {code}
+"""
+
 # --- 3. ROBUST AI CLASS ---
 class SocraticAI:
     def __init__(self):
@@ -361,6 +390,40 @@ class SocraticAI:
         except Exception as e:
             print(f"Adaptive Mission Gen Failed: {e}")
             return None
+
+    # --- [NEW] VOICE TO LOGIC METHOD ---
+    def generate_skeleton(self, voice_input: str):
+        """
+        Converts spoken logic into Python code structure.
+        """
+        if not self.api_ready or self.quota_exhausted:
+            return "# ⚠️ Voice module offline. Please type code."
+        
+        try:
+            prompt = VOICE_TO_CODE_PROMPT.format(input=voice_input)
+            response = self.llm.invoke(prompt).content
+            # Cleanup markdown
+            return response.replace('```python', '').replace('```', '').strip()
+        except Exception as e:
+            print(f"Voice Gen Failed: {e}")
+            return "# Error generating code structure."
+
+    # --- [NEW] PREDICTIVE DEBUGGING METHOD ---
+    def predict_simulation(self, code: str):
+        """
+        Simulates future execution states to warn about spikes/loops.
+        """
+        if not self.api_ready or self.quota_exhausted:
+            return {"risk_level": "Unknown", "prediction": "Simulation engine offline.", "suggestion": "Check manually."}
+        
+        try:
+            prompt = PREDICTIVE_DEBUG_PROMPT.format(code=code)
+            response = self.llm.invoke(prompt).content
+            cleaned = response.replace('```json', '').replace('```', '').strip()
+            return json.loads(cleaned)
+        except Exception as e:
+            print(f"Prediction Failed: {e}")
+            return {"risk_level": "Error", "prediction": "Analysis interrupted.", "suggestion": ""}
 
 # Initialize the global instance
 ai_tutor = SocraticAI()

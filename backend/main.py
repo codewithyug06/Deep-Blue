@@ -13,6 +13,7 @@ import re
 import asyncio
 import random
 import string
+import hashlib
 from datetime import datetime, timedelta
 import uuid
 from dotenv import load_dotenv
@@ -115,6 +116,18 @@ class DeleteAccountRequest(BaseModel):
     user_id: int
     password: str
 
+# --- NEW: RPG & ECONOMY MODELS ---
+class RPGStateRequest(BaseModel):
+    user_id: int
+
+class TravelRequest(BaseModel):
+    user_id: int
+    target_region: str
+
+class MintRequest(BaseModel):
+    user_id: int
+    skill: str
+
 # --- HELPER FUNCTIONS ---
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
@@ -205,7 +218,7 @@ def login_user(auth: UserAuth, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {"message": "Login successful", "user_id": user.id, "is_premium": user.is_premium}
 
-# --- NEW: SETTINGS & PROFILE MANAGEMENT ENDPOINTS ---
+# --- SETTINGS & PROFILE MANAGEMENT ENDPOINTS ---
 
 @app.post("/settings/change-password")
 def change_password(request: PasswordChangeRequest, db: Session = Depends(get_db)):
@@ -213,11 +226,9 @@ def change_password(request: PasswordChangeRequest, db: Session = Depends(get_db
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Verify old password
     if not verify_password(request.old_password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect current password")
     
-    # Update with new hashed password
     user.hashed_password = get_password_hash(request.new_password)
     db.commit()
     return {"status": "success", "message": "Password updated securely."}
@@ -228,7 +239,6 @@ def update_profile(request: ProfileUpdateRequest, db: Session = Depends(get_db))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Check if new username is taken by ANOTHER user
     existing_username = db.query(models.User).filter(
         models.User.username == request.new_username, 
         models.User.id != request.user_id
@@ -236,7 +246,6 @@ def update_profile(request: ProfileUpdateRequest, db: Session = Depends(get_db))
     if existing_username:
         raise HTTPException(status_code=400, detail="Username already taken.")
 
-    # Check if new email is taken by ANOTHER user
     existing_email = db.query(models.User).filter(
         models.User.email == request.new_email, 
         models.User.id != request.user_id
@@ -255,18 +264,95 @@ def delete_account(request: DeleteAccountRequest, db: Session = Depends(get_db))
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     
-    # Verify password before deletion
     if not verify_password(request.password, user.hashed_password):
         raise HTTPException(status_code=400, detail="Incorrect password. Cannot delete account.")
     
-    # Delete User (Cascade delete will handle UserProgress if configured in DB, 
-    # otherwise we should manually delete related records to be safe)
     db.query(models.UserProgress).filter(models.UserProgress.user_id == request.user_id).delete()
     db.query(models.Leaderboard).filter(models.Leaderboard.user_id == request.user_id).delete()
     db.delete(user)
     db.commit()
     
     return {"status": "success", "message": "Account terminated permanently."}
+
+# --- NEW: RPG & ECONOMY ENDPOINTS ---
+
+@app.post("/rpg/state")
+def get_world_state(request: RPGStateRequest, db: Session = Depends(get_db)):
+    state = db.query(models.WorldProgress).filter(models.WorldProgress.user_id == request.user_id).first()
+    if not state:
+        # Initialize default world state
+        state = models.WorldProgress(user_id=request.user_id)
+        db.add(state)
+        db.commit()
+        db.refresh(state)
+    
+    # Check completed missions to unlock new regions (Game Logic)
+    completed_missions = db.query(models.UserProgress).filter(
+        models.UserProgress.user_id == request.user_id, 
+        models.UserProgress.is_completed == True
+    ).all()
+    
+    unlocked = set(state.unlocked_regions.split(','))
+    
+    # LOGIC: Unlock specific regions based on mission count or specific IDs
+    mission_count = len(completed_missions)
+    if mission_count >= 1: unlocked.add("Algorithm Peaks")
+    if mission_count >= 3: unlocked.add("Data Mines")
+    if mission_count >= 5: unlocked.add("Neural Citadel")
+    
+    state.unlocked_regions = ",".join(unlocked)
+    db.commit()
+
+    return {
+        "current_region": state.current_region,
+        "unlocked_regions": state.unlocked_regions.split(',')
+    }
+
+@app.post("/rpg/travel")
+def travel_to_region(request: TravelRequest, db: Session = Depends(get_db)):
+    state = db.query(models.WorldProgress).filter(models.WorldProgress.user_id == request.user_id).first()
+    if not state:
+        raise HTTPException(status_code=404, detail="World state not found")
+    
+    unlocked = state.unlocked_regions.split(',')
+    if request.target_region not in unlocked:
+        raise HTTPException(status_code=403, detail="Region locked. Complete more missions.")
+    
+    state.current_region = request.target_region
+    db.commit()
+    return {"status": "Traveled", "current_region": state.current_region}
+
+@app.post("/economy/mint-sbt")
+def mint_sbt(request: MintRequest, db: Session = Depends(get_db)):
+    # Verify eligibility (e.g., check if hard missions are done)
+    # For now, we simulate eligibility
+    
+    existing_token = db.query(models.SoulboundToken).filter(
+        models.SoulboundToken.user_id == request.user_id,
+        models.SoulboundToken.skill_name == request.skill
+    ).first()
+    
+    if existing_token:
+        return {"status": "exists", "token": existing_token.token_hash}
+    
+    # Generate Pseudo-Blockchain Hash
+    raw_str = f"{request.user_id}-{request.skill}-{datetime.utcnow().isoformat()}"
+    token_hash = "0x" + hashlib.sha256(raw_str.encode()).hexdigest()
+    
+    token = models.SoulboundToken(
+        user_id=request.user_id,
+        skill_name=request.skill,
+        token_hash=token_hash
+    )
+    db.add(token)
+    db.commit()
+    
+    return {"status": "minted", "token": token_hash}
+
+@app.get("/economy/wallet/{user_id}")
+def get_wallet(user_id: int, db: Session = Depends(get_db)):
+    tokens = db.query(models.SoulboundToken).filter(models.SoulboundToken.user_id == user_id).all()
+    return [{"skill": t.skill_name, "hash": t.token_hash, "date": t.minted_at} for t in tokens]
 
 # --- VISUALIZATION & ANALYSIS ---
 @app.post("/visualize")
@@ -352,9 +438,28 @@ class ConnectionManager:
             self.active_duels[duel_id] = [player1, player2]
             self.ws_to_duel[player1] = duel_id
             self.ws_to_duel[player2] = duel_id
+            
+            # 1. Start Duel
             start_msg = json.dumps({"type": "duel_start", "duel_id": duel_id})
             await player1.send_text(start_msg)
             await player2.send_text(start_msg)
+
+            # 2. SOCRATIC BATTLE INITIATION: Lock Editors & Send Challenge
+            questions = [
+                {"q": "What is the complexity of binary search?", "a": "log"},
+                {"q": "What keyword breaks a loop?", "a": "break"},
+                {"q": "Mutable list or tuple?", "a": "list"},
+                {"q": "True or False: Python is compiled?", "a": "false"}
+            ]
+            challenge = random.choice(questions)
+            
+            lock_msg = json.dumps({
+                "type": "duel_challenge", 
+                "question": challenge['q'],
+                "expected": challenge['a'] 
+            })
+            await player1.send_text(lock_msg)
+            await player2.send_text(lock_msg)
 
     async def broadcast_duel_update(self, websocket: WebSocket, payload: dict):
         duel_id = self.ws_to_duel.get(websocket)
@@ -386,6 +491,17 @@ async def websocket_endpoint(websocket: WebSocket):
 
             if msg_type == "code_sync":
                 await manager.broadcast_to_room(json.dumps({"type": "code_update", "code": payload.get("code")}), session_id, websocket)
+                
+                # --- AI MEDIATOR LOGIC ---
+                if len(manager.active_rooms.get(session_id, [])) > 1 and random.random() < 0.05:
+                    advice = random.choice([
+                        "Mediator: Navigator, verify the loop bounds.",
+                        "Mediator: Pilot, consider extracting that logic into a function.",
+                        "Mediator: Conflict detected in logic flow. Pause and discuss.",
+                        "Mediator: Excellent synchronization detected."
+                    ])
+                    await manager.broadcast_to_room(json.dumps({"role": "ai_mediator", "text": advice}), session_id, None)
+
             elif msg_type == "bridge_output":
                 await manager.broadcast_to_room(json.dumps({"type": "terminal_update", "output": payload.get("output")}), session_id, websocket)
             elif msg_type == "find_match":
@@ -394,6 +510,16 @@ async def websocket_endpoint(websocket: WebSocket):
                 await manager.broadcast_duel_update(websocket, {"type": "opponent_visual", "data": payload.get("data")})
             elif msg_type == "duel_win":
                 await manager.broadcast_duel_update(websocket, {"type": "duel_end", "result": "lose", "reason": "opponent_completed"})
+            
+            elif msg_type == "duel_unlock_attempt":
+                user_ans = payload.get("answer", "").lower().strip()
+                expected = payload.get("expected", "").lower().strip()
+                
+                if user_ans and (user_ans in expected or expected in user_ans):
+                    await websocket.send_text(json.dumps({"type": "duel_unlock"}))
+                else:
+                    await websocket.send_text(json.dumps({"type": "duel_lock_fail", "msg": "Incorrect. Logic Lock remains active."}))
+
             elif msg_type == "chat":
                 user_input = payload.get("message", "")
                 user_code = payload.get("code", "")

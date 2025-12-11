@@ -19,6 +19,8 @@ const Icons = {
   Users: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>,
   Ghost: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 18A8 8 0 0012 2a8 8 0 00-8 8v8a8 8 0 0016 0h-4zm-4-4v-4a4 4 0 00-8 0v4h8z" /></svg>,
   Sword: () => <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>,
+  Refresh: () => <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>,
+  Copy: () => <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>,
   Fire: () => <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.45-.412-1.725a1 1 0 00-1.847-.267c-.125.27-.091.606.017.967.191.638.563 1.241.986 1.726a5.547 5.547 0 00-2.222 3.074c-.007.028-.01.056-.013.085L4.092 12.7c-.23.15-.31.423-.19.663.593 1.186 1.702 2.307 3.328 3.365.942.615 1.996 1.056 3.09 1.258.913.169 1.777.05 2.55-.262a5.526 5.526 0 002.397-2.029c.74-1.24.97-2.61.682-3.856l-.015-.064a6.76 6.76 0 00-.637-1.842c-.22-.43-.48-.826-.77-1.175.302.26.621.492.95.688.35.21.755.228 1.059.083.333-.16.517-.553.43-1.01a6.67 6.67 0 00-.818-2.383 6.958 6.958 0 00-1.575-2.09c-.432-.423-.925-.79-1.418-1.123-.39-.264-.766-.5-1.113-.687zM8.03 15.65c.67.436 1.41.722 2.164.862.61.113 1.183.044 1.68-.16a3.525 3.525 0 001.53-1.296c.472-.792.618-1.666.434-2.46a4.773 4.773 0 00-.45-1.303c-.232-.45-.53-.865-.892-1.229a4.962 4.962 0 00-1.124-1.49c-.308-.302-.66-.563-1.013-.8.21.743.332 1.55.334 2.41 0 .276-.224.5-.5.5-.276 0-.5-.224-.5-.5a6.612 6.612 0 00-.172-1.517c-.365.26-.705.54-.997.834a4.57 4.57 0 00-1.077 1.79c-.235 1.013.065 2.213 1.082 3.86z" clipRule="evenodd" /></svg>
 };
 
@@ -81,8 +83,11 @@ const ChatInterface = ({ messages, onSend, loading, onMicClick }) => {
                         <div className={`max-w-[85%] rounded-2xl p-3 text-xs leading-5 shadow-lg ${
                             msg.role === 'user' 
                             ? 'bg-blue-600/20 border border-blue-500/30 text-blue-100 rounded-br-sm' 
+                            : msg.role === 'ai_mediator'
+                            ? 'bg-purple-600/20 border border-purple-500/30 text-purple-200 rounded-bl-sm italic border-l-4'
                             : 'bg-[#1e293b]/80 border border-white/10 text-slate-300 rounded-bl-sm'
                         }`}>
+                            {msg.role === 'ai_mediator' && <span className="block text-[9px] text-purple-400 font-bold uppercase tracking-widest mb-1">AI Mediator</span>}
                             {msg.text.split('\n').map((line, i) => (
                                 <p key={i} className="mb-1 last:mb-0">{line}</p>
                             ))}
@@ -195,6 +200,74 @@ const HeatmapOverlay = ({ code, stats, onClose }) => {
     );
 };
 
+// --- SOCRATIC BATTLE LOCK SCREEN ---
+const SocraticLockOverlay = ({ question, onUnlock, locked }) => {
+    const [answer, setAnswer] = useState("");
+    const [shake, setShake] = useState(false);
+    const [errorMsg, setErrorMsg] = useState("");
+
+    const handleSubmit = async (e) => {
+        e.preventDefault();
+        setErrorMsg("");
+        onUnlock(answer, (success, msg) => {
+            if (!success) {
+                setShake(true);
+                setErrorMsg(msg || "Incorrect. Logic mismatch.");
+                setTimeout(() => setShake(false), 500);
+            }
+        });
+    };
+
+    if (!locked) return null;
+
+    return (
+        <div className="absolute inset-0 z-[60] bg-black/80 backdrop-blur-md flex items-center justify-center p-6">
+            <motion.div 
+                // MERGED ANIMATE PROP TO FIX DUPLICATE KEY ERROR
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ 
+                    scale: 1, 
+                    opacity: 1, 
+                    x: shake ? [-10, 10, -10, 10, 0] : 0 
+                }}
+                className="w-full max-w-md bg-[#0a0f1e] border border-red-500/50 rounded-2xl p-8 shadow-[0_0_50px_rgba(239,68,68,0.3)] text-center relative overflow-hidden"
+            >
+                <div className="absolute top-0 left-0 right-0 h-1 bg-red-500 animate-pulse"></div>
+                <div className="mb-6">
+                    <div className="w-16 h-16 mx-auto bg-red-500/10 rounded-full flex items-center justify-center border border-red-500/30 mb-4">
+                        <Icons.Lock />
+                    </div>
+                    <h2 className="text-2xl font-black text-red-500 uppercase tracking-widest mb-2">SYSTEM LOCKED</h2>
+                    <p className="text-xs text-red-300/80 font-mono">Socratic verification required to proceed.</p>
+                </div>
+
+                <div className="bg-black/40 border border-white/5 rounded-xl p-4 mb-6 text-sm text-slate-200 font-mono leading-relaxed">
+                    {question || "Initialize sequence..."}
+                </div>
+
+                <form onSubmit={handleSubmit} className="space-y-4">
+                    <input 
+                        type="text" 
+                        value={answer}
+                        onChange={(e) => setAnswer(e.target.value)}
+                        placeholder="Enter logical key..."
+                        className="w-full bg-black/50 border border-red-500/30 rounded-lg py-3 px-4 text-center text-white focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all font-mono text-sm"
+                        autoFocus
+                    />
+                    {errorMsg && <p className="text-[10px] text-red-400 font-bold uppercase tracking-wide">{errorMsg}</p>}
+                    
+                    <button 
+                        type="submit" 
+                        className="w-full py-3 bg-red-600 hover:bg-red-500 text-white font-bold uppercase tracking-widest text-xs rounded-lg transition-all shadow-lg shadow-red-900/40"
+                    >
+                        Override Lock
+                    </button>
+                </form>
+            </motion.div>
+        </div>
+    );
+};
+
 const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrade }) => {
   // --- VFS & EDITOR STATE ---
   const [files, setFiles] = useState({ 
@@ -222,12 +295,17 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
   const [glitch, setGlitch] = useState(false);
   const [systemOverload, setSystemOverload] = useState(false); 
   
-  // --- MULTIPLAYER STATE ---
+  // --- MULTIPLAYER & BATTLE STATE ---
   const [gameMode, setGameMode] = useState('solo'); 
   const [crewRole, setCrewRole] = useState(null); 
   const [sessionKey, setSessionKey] = useState('');
   const [isMatchmaking, setIsMatchmaking] = useState(false);
   
+  // New Duel States
+  const [isDuelLocked, setIsDuelLocked] = useState(false);
+  const [duelQuestion, setDuelQuestion] = useState("");
+  const [pendingUnlockCallback, setPendingUnlockCallback] = useState(null);
+
   const [ghostRecording, setGhostRecording] = useState(null); 
   const [showGhostButton, setShowGhostButton] = useState(false);
   
@@ -289,6 +367,19 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
       
       if (currentLine !== trackingRef.current.lastLine) {
           updateDwellTime(currentLine);
+      }
+  };
+
+  // --- HELPER FUNCTIONS FOR MULTIPLAYER UI ---
+  const generateSessionKey = () => {
+      const key = Math.random().toString(36).substring(2, 8).toUpperCase();
+      setSessionKey(key);
+  };
+
+  const copyToClipboard = () => {
+      if (sessionKey) {
+          navigator.clipboard.writeText(sessionKey);
+          // Optional toast could go here
       }
   };
 
@@ -378,6 +469,18 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
             } else if (data.result === 'win') {
                 setOutput("\n>> VICTORY: OPPONENT SYSTEM COMPROMISED.\n");
             }
+        } else if (data.type === "duel_challenge") {
+            // SOCRATIC BATTLE: LOCK SCREEN
+            setIsDuelLocked(true);
+            setDuelQuestion(data.question);
+            if (navigator.vibrate) navigator.vibrate([50, 50, 50]);
+        } else if (data.type === "duel_unlock") {
+            setIsDuelLocked(false);
+            // Notify pending callback if exists
+            if (pendingUnlockCallback) pendingUnlockCallback(true);
+            setPendingUnlockCallback(null);
+        } else if (data.type === "duel_lock_fail") {
+            if (pendingUnlockCallback) pendingUnlockCallback(false, data.msg);
         } else if (data.role) {
             setLoading(false);
             setChatMessages(prev => [...prev, { role: data.role, text: data.text }]);
@@ -389,6 +492,18 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
 
     return () => socket.close();
   }, [missionId, crewRole, activeFile, user?.id]);
+
+  // Handler for Socratic Challenge Answer
+  const handleUnlockAttempt = (answer, callback) => {
+      setPendingUnlockCallback(() => callback); // Store ref to callback
+      if(ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+              type: "duel_unlock_attempt",
+              answer: answer,
+              expected: missionData?.solution_keywords?.[0] || "secret" // Passing partial validation key logic
+          }));
+      }
+  };
 
   const handleScroll = () => {
     if (textareaRef.current && highlightRef.current) {
@@ -470,6 +585,7 @@ const Dashboard = ({ user, initialCode, missionId, missionDesc, onBack, onUpgrad
 
   // --- MODIFIED handleRun to support VFS, DB, and Multiplayer Modes ---
   const handleRun = async () => {
+      if (isDuelLocked) return; // Prevent run if locked
       if (!pyodide) {
           setOutput(">> Engine initializing... please wait.");
           return;
@@ -714,7 +830,7 @@ test_db_conn.close()
 
   const handleJoinCrew = (role) => {
       if (!sessionKey) return;
-      setCrewMode(true);
+      // setCrewMode(true); // Removed as it was undefined in original
       setGameMode('bridge');
       setCrewRole(role);
       if (ws && ws.readyState === WebSocket.OPEN) {
@@ -727,6 +843,8 @@ test_db_conn.close()
 
   const handleCodeChange = (newCode) => {
       if (crewRole === 'navigator') return;
+      if (isDuelLocked) return; // Prevent edits if locked
+      
       setFiles(prev => ({ ...prev, [activeFile]: newCode }));
       
       if (gameMode === 'bridge' && crewRole === 'pilot' && ws && ws.readyState === WebSocket.OPEN) {
@@ -750,6 +868,8 @@ test_db_conn.close()
 
   const handleKeyDown = (e) => {
     if (crewRole === 'navigator') return;
+    if (isDuelLocked) { e.preventDefault(); return; } // Key lock
+
     const { selectionStart, selectionEnd, value } = e.target;
     
     // --- COGNITIVE TRACKING: BACKSPACES ---
@@ -829,6 +949,13 @@ test_db_conn.close()
   return (
     <div className={`flex h-screen bg-[#020617] text-slate-300 font-sans overflow-hidden ${systemOverload ? 'animate-pulse bg-red-900/20' : ''}`}>
       
+      {/* SOCRATIC BATTLE OVERLAY */}
+      <SocraticLockOverlay 
+          locked={isDuelLocked} 
+          question={duelQuestion} 
+          onUnlock={handleUnlockAttempt} 
+      />
+
       {/* SYSTEM OVERLOAD OVERLAY */}
       <AnimatePresence>
         {systemOverload && (
@@ -873,41 +1000,85 @@ test_db_conn.close()
                     </div>
                 </div>
                 
-                {/* MULTIPLAYER CONTROLS */}
+                {/* IMPROVED MULTIPLAYER CONTROL PANEL */}
                 <div className="flex flex-col items-end gap-2">
                     {gameMode === 'solo' ? (
-                        <div className="flex items-center gap-2 bg-white/5 rounded-lg p-1">
+                        <div className="flex items-center gap-3 bg-[#0f172a]/80 backdrop-blur-md border border-white/10 p-1.5 rounded-xl shadow-xl">
+                            {/* DUEL MODE BUTTON */}
                             <button 
                                 onClick={startMatchmaking} 
-                                className={`text-[10px] uppercase font-bold px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center gap-2 ${isMatchmaking ? 'animate-pulse' : ''}`}
+                                className={`text-[10px] uppercase font-bold px-3 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-500 text-white transition-all flex items-center gap-2 shadow-lg shadow-purple-900/20 ${isMatchmaking ? 'animate-pulse' : ''}`}
                             >
                                 <Icons.Sword /> {isMatchmaking ? 'Scanning...' : 'Code Duel'}
                             </button>
                             
-                            <div className="h-4 w-[1px] bg-white/10 mx-1"></div>
+                            {/* DIVIDER */}
+                            <div className="h-5 w-[1px] bg-white/10"></div>
 
-                            <input 
-                                type="text" 
-                                placeholder="Crew Key" 
-                                value={sessionKey} 
-                                onChange={(e) => setSessionKey(e.target.value)}
-                                className="bg-transparent border-none text-xs text-white w-20 px-2 focus:outline-none placeholder-slate-600"
-                            />
-                            <div className="flex gap-1">
-                                <button onClick={() => handleJoinCrew('pilot')} className="text-xs px-2 py-1 bg-blue-600/30 text-blue-300 rounded hover:bg-blue-600/50">Pilot</button>
-                                <button onClick={() => handleJoinCrew('navigator')} className="text-xs px-2 py-1 bg-emerald-600/30 text-emerald-300 rounded hover:bg-emerald-600/50">Nav</button>
+                            {/* CO-OP BRIDGE CONTROLS */}
+                            <div className="flex items-center gap-2 group">
+                                <div className="relative flex items-center">
+                                    <input 
+                                        type="text" 
+                                        placeholder="Crew Key" 
+                                        value={sessionKey} 
+                                        onChange={(e) => setSessionKey(e.target.value)}
+                                        className="bg-black/30 border border-white/10 rounded-lg text-xs text-white w-28 py-1.5 pl-2 pr-8 focus:outline-none focus:border-cyan-500/50 placeholder-slate-600 font-mono tracking-wide transition-all"
+                                    />
+                                    {/* Generate Key Button inside Input */}
+                                    <button 
+                                        onClick={generateSessionKey}
+                                        className="absolute right-1 p-1 text-slate-500 hover:text-cyan-400 transition-colors"
+                                        title="Generate Unique Key"
+                                    >
+                                        <Icons.Refresh />
+                                    </button>
+                                </div>
+
+                                {/* Copy Button (Visible if key exists) */}
+                                {sessionKey && (
+                                    <button 
+                                        onClick={copyToClipboard}
+                                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white transition-colors border border-white/5"
+                                        title="Copy to Clipboard"
+                                    >
+                                        <Icons.Copy />
+                                    </button>
+                                )}
+
+                                {/* Join Roles */}
+                                <div className="flex gap-1">
+                                    <button 
+                                        onClick={() => handleJoinCrew('pilot')} 
+                                        className="text-[10px] font-bold uppercase px-3 py-1.5 bg-blue-600/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-600 hover:text-white transition-all tracking-wider"
+                                        title="Join as Pilot (Write Code)"
+                                    >
+                                        Pilot
+                                    </button>
+                                    <button 
+                                        onClick={() => handleJoinCrew('navigator')} 
+                                        className="text-[10px] font-bold uppercase px-3 py-1.5 bg-emerald-600/20 text-emerald-300 border border-emerald-500/30 rounded-lg hover:bg-emerald-600 hover:text-white transition-all tracking-wider"
+                                        title="Join as Navigator (Read Output)"
+                                    >
+                                        Nav
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     ) : (
-                        <div className="flex items-center gap-2 px-3 py-1 bg-cyan-500/10 border border-cyan-500/30 rounded-lg">
-                            <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse"></div>
-                            <span className="text-[10px] font-bold text-cyan-400 uppercase tracking-widest">
-                                {gameMode === 'duel' ? 'DUEL IN PROGRESS' : `BRIDGE: ${crewRole?.toUpperCase()}`}
+                        <div className="flex items-center gap-3 px-4 py-2 bg-cyan-950/30 border border-cyan-500/30 rounded-xl shadow-lg shadow-cyan-900/10 backdrop-blur-md">
+                            <div className="relative">
+                                <div className="w-2 h-2 rounded-full bg-cyan-400 animate-ping absolute opacity-75"></div>
+                                <div className="w-2 h-2 rounded-full bg-cyan-500 relative"></div>
+                            </div>
+                            <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-[0.15em] glow-text">
+                                {gameMode === 'duel' ? 'DUEL IN PROGRESS' : `BRIDGE LINK: ${crewRole?.toUpperCase()}`}
                             </span>
                         </div>
                     )}
 
-                    <div className="flex items-center gap-3">
+                    {/* MAIN ACTIONS ROW */}
+                    <div className="flex items-center gap-3 mt-1">
                         {showGhostButton && (
                             <button onClick={() => setGhostRecording(null)} className="px-4 py-2 rounded-lg bg-purple-500/10 hover:bg-purple-500/20 text-purple-400 border border-purple-500/20 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 disabled:opacity-50">
                                 <Icons.Ghost />
